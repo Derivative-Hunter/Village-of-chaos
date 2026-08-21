@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Village of Chaos</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        
+        body { 
+            background: radial-gradient(circle at 50% 30%, #172338 0%, #080d17 100%); 
+            color: #f1f5f9; 
+            margin: 0; 
+            padding: 0; 
+            height: 100vh; 
+            overflow: hidden; 
+            user-select: none;
+        }
+
+        .card { 
+            background: rgba(22, 30, 46, 0.9); 
+            border-radius: 16px; 
+            padding: 25px; 
+            width: 520px; 
+            max-height: 92vh;
+            overflow-y: auto;
+            margin: 15px auto; 
+            border: 1px solid rgba(255,255,255,0.1); 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center; 
+        }
+        input, button, select { 
+            width: 100%; 
+            padding: 12px; 
+            margin: 6px 0; 
+            border-radius: 8px; 
+            border: 1px solid rgba(255,255,255,0.15); 
+            background: #0f1623; 
+            color: white; 
+            font-size: 14px; 
+            outline: none;
+        }
+        button { 
+            background: #2563eb; 
+            color: white; 
+            cursor: pointer; 
+            font-weight: 600; 
+            border: none; 
+            transition: all 0.2s; 
+        }
+        button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-gold { background: #eab308; color: #000; font-weight: bold; }
+        .btn-danger { background: #ef4444; color: white; font-weight: bold; }
+        .hidden { display: none !important; }
+
+        .settings-box { background: #0f1623; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 15px; margin: 15px 0; text-align: left; }
+        .settings-box h4 { margin: 0 0 10px 0; color: #f59e0b; text-align: center; font-size: 15px; }
+        .setting-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+        .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+        .setting-item input { width: 60px; text-align: center; padding: 6px; margin: 0; }
+        .role-category { grid-column: span 2; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 9px 10px; margin-top: 3px; }
+        .role-category h5 { margin: 0 0 7px; font-size: 12px; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.4px; }
+        .role-category.town h5 { color: #38bdf8; }
+        .role-category.hain h5 { color: #f87171; }
+        .role-category.neutral h5 { color: #c084fc; }
+        .role-category .setting-grid { gap: 7px 12px; }
+        .night-role-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
+        .night-role-tools select, .night-role-tools button { width: auto; min-width: 150px; margin: 0; }
+
+        .player-scroll-list {
+            max-height: 120px;
+            overflow-y: auto;
+            background: rgba(10, 15, 26, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 8px;
+            margin: 10px 0;
+            text-align: left;
+        }
+
+        #top-bar {
+            width: 100%;
+            padding: 12px 25px 5px 25px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(10, 15, 26, 0.6);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .header-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 1200px;
+            margin-bottom: 6px;
+        }
+
+        .role-display {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .role-pill {
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .role-pill.Hain { background: #f87171; }
+        .role-pill.Town { background: #38bdf8; }
+        .role-pill.Neutral { background: #a855f7; }
+
+        .header-actions { display: flex; gap: 10px; }
+        .header-btn {
+            width: auto;
+            padding: 8px 16px;
+            font-size: 13px;
+            border-radius: 20px;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 700;
+        }
+        .btn-cyan { background: #0284c7; color: white; }
+
+        .phase-header {
+            font-size: 22px;
+            font-weight: 900;
+            color: #f97316;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 2px;
+        }
+
+        .phase-subtext {
+            font-size: 13px;
+            color: #cbd5e1;
+            margin-top: 3px;
+            font-weight: 500;
+        }
+
+        .judgment-bar {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+            justify-content: center;
+        }
+        .judgment-pill {
+            padding: 8px 22px;
+            border-radius: 25px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(15, 22, 35, 0.8);
+            color: #fff;
+        }
+        .judgment-pill.guilty { border-color: #ef4444; color: #fca5a5; }
+        .judgment-pill.guilty.active, .judgment-pill.guilty:hover { background: #ef4444; color: white; }
+
+        .judgment-pill.innocent { border-color: #22c55e; color: #86efac; }
+        .judgment-pill.innocent.active, .judgment-pill.innocent:hover { background: #22c55e; color: white; }
+
+        .judgment-pill.abstain { border-color: #94a3b8; color: #cbd5e1; }
+        .judgment-pill.abstain.active, .judgment-pill.abstain:hover { background: #64748b; color: white; }
+
+        #game-screen { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
+        .game-body { display: flex; flex: 1; overflow: hidden; padding: 15px 20px; gap: 20px; }
+
+        .main-panel { 
+            flex: 1; 
+            background: rgba(15, 23, 42, 0.4); 
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            border-radius: 16px; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            overflow-y: auto; 
+        }
+
+        .player-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); 
+            gap: 16px; 
+            width: 100%; 
+            max-width: 1000px; 
+        }
+
+        .player-card { 
+            background: rgba(28, 38, 56, 0.75); 
+            border: 1px solid rgba(255, 255, 255, 0.12); 
+            border-radius: 14px; 
+            padding: 12px 10px; 
+            text-align: center; 
+            transition: all 0.2s ease; 
+            position: relative; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 150px;
+        }
+
+        .player-card.traitor-ally {
+            border: 2px solid #ef4444 !important;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.4) !important;
+        }
+
+        .player-card.selected { 
+            border: 2px solid #f59e0b !important; 
+            box-shadow: 0 0 22px rgba(245, 158, 11, 0.65) !important; 
+            background: rgba(245, 158, 11, 0.12) !important;
+            transform: translateY(-2px);
+        }
+
+        .player-card.dead { opacity: 0.35; filter: grayscale(100%); }
+
+        .player-card .house-icon { font-size: 32px; line-height: 1; margin-bottom: 2px; }
+        .player-card .player-name { font-weight: 700; font-size: 14px; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .player-card .player-name.text-red { color: #ef4444 !important; }
+        
+        .role-tag {
+            background: #0f172a;
+            color: #ef4444;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 10px;
+            border-radius: 10px;
+            margin: 3px 0 6px 0;
+            display: inline-block;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card-btn {
+            width: 100%;
+            padding: 6px 4px;
+            margin: 2px 0;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        .btn-action-pink { background: #fca5a5; color: #7f1d1d; }
+        .btn-action-pink:hover { background: #f87171; color: white; }
+
+        .btn-action-yellow { background: #fde047; color: #713f12; }
+        .btn-action-yellow:hover { background: #eab308; color: black; }
+
+        .btn-action-purple { background: #e9d5ff; color: #581c87; }
+        .btn-action-purple:hover { background: #c084fc; color: white; }
+
+        .chat-panel { 
+            width: 380px; 
+            background: rgba(12, 18, 30, 0.85); 
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            border-radius: 16px; 
+            display: flex; 
+            flex-direction: column; 
+            padding: 15px; 
+        }
+        .chat-log { 
+            flex: 1; 
+            overflow-y: auto; 
+            background: rgba(6, 10, 18, 0.7); 
+            border: 1px solid rgba(255,255,255,0.05); 
+            border-radius: 10px; 
+            padding: 12px; 
+            margin-bottom: 10px; 
+            font-size: 13px; 
+        }
+        .chat-msg { margin-bottom: 6px; padding: 6px 10px; border-radius: 6px; word-break: break-word; }
+        .chat-msg.system { color: #f59e0b; font-weight: 600; font-size: 12.5px; }
+        .chat-msg.general { background: rgba(255,255,255,0.04); color: #e2e8f0; }
+        .chat-msg.hain { background: rgba(220, 38, 38, 0.2); color: #fca5a5; border: 1px solid rgba(220, 38, 38, 0.3); }
+        .chat-msg.dead { color: #64748b; font-style: italic; }
+        .chat-msg.whisper { background: rgba(168, 85, 247, 0.2); color: #e9d5ff; border: 1px solid rgba(168, 85, 247, 0.3); }
+        .chat-msg.spy { background: rgba(234, 179, 8, 0.2); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.3); }
+        .chat-msg.green { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); font-weight: 600; }
+
+        .chat-row { display: flex; gap: 8px; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-card { background: #161c26; border: 2px solid #2a3447; border-radius: 14px; padding: 25px; text-align: center; max-width: 500px; width: 90%; max-height: 85vh; overflow-y: auto; }
+        .role-list-item { text-align: left; background: #0f1623; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 13px; }
+        .role-list-item strong { color: #38bdf8; font-size: 14px; }
+        .role-list-item.evil strong { color: #f87171; }
+        .role-list-item.neutral strong { color: #c084fc; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen" class="card">
+    <h2 style="color: #f59e0b; margin-top:0;">Village of Chaos</h2>
+    <input type="text" id="username" placeholder="Kullanıcı Adın">
+    <button onclick="createRoom()">Oda Oluştur</button>
+    <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
+    <input type="text" id="roomCode" placeholder="Oda Kodu">
+    <button onclick="joinRoom()">Odaya Katıl</button>
+</div>
+
+<div id="lobby-screen" class="card hidden">
+    <h2>Oda Kodu: <span id="display-code" style="color: #10b981;"></span></h2>
+    
+    <div class="settings-box">
+        <h4>⚙️ Rol & Oyuncu Sayıları <span id="host-tag" style="font-size:11px; color:#94a3b8;"></span></h4>
+        <div class="setting-grid">
+            <div class="role-category town">
+                <h5>🏘️ Köy Takımı · Koruma Köylüleri</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Rol sayısı (Doktor / Uyutucu / Tuzakçı):</label><input type="number" id="cfg-koruma-koylusu" value="0" min="0" max="3" onchange="emitSettings()"></div>
+                </div>
+            </div>
+            <div class="role-category town">
+                <h5>🔫 Köy Takımı · Silahlı Köylüler</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Rol sayısı (Vigilante / Başkan):</label><input type="number" id="cfg-silahli-koylu" value="0" min="0" max="2" onchange="emitSettings()"></div>
+                </div>
+            </div>
+            <div class="role-category town">
+                <h5>🔎 Köy Takımı · Araştırmacı Köylüler</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Rol sayısı (Ayakçı / Gözcü / Medyum / Casus / Kahin):</label><input type="number" id="cfg-arastirmaci-koylu" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                </div>
+            </div>
+            <div class="role-category hain">
+                <h5>👹 Hain Takımı · Silahlı Hainler</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Rol sayısı (Gizleyici / Düz Hain):</label><input type="number" id="cfg-silahli-hain" value="1" min="0" max="2" onchange="emitSettings()"></div>
+                </div>
+            </div>
+            <div class="role-category hain">
+                <h5>👹 Hain Takımı · Destekçi Hainler</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Rol sayısı (Suikastçi / Gölge / Susturucu / Büyücü / Duyucu):</label><input type="number" id="cfg-destekci-hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                </div>
+            </div>
+            <div class="role-category hain">
+                <h5>👹 Hain Takımı · Hain Köylü</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Rol sayısı (rastgele köy rolü):</label><input type="number" id="cfg-hain-koylu" value="0" min="0" max="6" onchange="emitSettings()"></div>
+                </div>
+            </div>
+            <div class="role-category neutral">
+                <h5>⚖️ Tarafsız · Silahlı Tarafsızlar</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Rol sayısı (Kundakçı / Seri Katil):</label><input type="number" id="cfg-silahli-tarafsiz" value="0" min="0" max="2" onchange="emitSettings()"></div>
+                </div>
+            </div>
+            <div class="role-category neutral">
+                <h5>⚖️ Tarafsız · Normal Tarafsızlar</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Rol sayısı (Jester / Hırsız):</label><input type="number" id="cfg-normal-tarafsiz" value="0" min="0" max="2" onchange="emitSettings()"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-box">
+            <h4>🔢 Normal Rol Sayaçları</h4>
+            <p style="font-size:12px; color:#94a3b8; text-align:center; margin:0 0 10px;">Bir veya daha fazla sayaç girilirse katalogdaki kategori seçimi yerine bu dağılım kullanılır.</p>
+            <div class="setting-grid" id="normal-role-counters">
+                <div class="setting-item"><label>Düz Köylü</label><input type="number" id="cfg-role-duz-koylu" data-role="Düz Köylü" value="0" min="0" max="30" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Doktor</label><input type="number" id="cfg-role-doktor" data-role="Doktor" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Uyutucu</label><input type="number" id="cfg-role-uyutucu" data-role="Uyutucu" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Vigilante</label><input type="number" id="cfg-role-vigilante" data-role="Vigilante" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Başkan</label><input type="number" id="cfg-role-baskan" data-role="Başkan" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Ayakçı</label><input type="number" id="cfg-role-ayakci" data-role="Ayakçı" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Gözcü</label><input type="number" id="cfg-role-gozcu" data-role="Gözcü" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Medyum</label><input type="number" id="cfg-role-medyum" data-role="Medyum" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Casus</label><input type="number" id="cfg-role-casus" data-role="Casus" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Kahin Köylü</label><input type="number" id="cfg-role-kahin" data-role="Kahin Köylü" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Tuzakçı Köylü</label><input type="number" id="cfg-role-tuzakci" data-role="Tuzakçı Köylü" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Gizleyici</label><input type="number" id="cfg-role-gizleyici" data-role="Gizleyici" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Düz Hain</label><input type="number" id="cfg-role-duz-hain" data-role="Düz Hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Suikastçi</label><input type="number" id="cfg-role-suikastci" data-role="Suikastçi" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Gölge Ajanı</label><input type="number" id="cfg-role-golge" data-role="Gölge Ajanı" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Susturucu</label><input type="number" id="cfg-role-susturucu" data-role="Susturucu" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Büyücü Hain</label><input type="number" id="cfg-role-buyucu" data-role="Büyücü Hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Duyucu Hain</label><input type="number" id="cfg-role-duyucu" data-role="Duyucu Hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Kundakçı</label><input type="number" id="cfg-role-kundakci" data-role="Kundakçı" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Seri Katil</label><input type="number" id="cfg-role-seri-katil" data-role="Seri Katil" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Jester</label><input type="number" id="cfg-role-jester" data-role="Jester" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Hırsız</label><input type="number" id="cfg-role-hirsiz" data-role="Hırsız" value="0" min="0" max="5" onchange="emitSettings()"></div>
+            </div>
+        </div>
+
+        <h4 style="margin-top: 12px;">⏱️ Süre Ayarları</h4>
+        <div class="setting-grid">
+            <div class="setting-item"><label>🗣️ Konuşma:</label><input type="number" id="cfg-day" value="25" min="5" max="120" onchange="emitSettings()"></div>
+            <div class="setting-item"><label>🗳️ Oylama:</label><input type="number" id="cfg-vote" value="20" min="5" max="60" onchange="emitSettings()"></div>
+            <div class="setting-item"><label>📢 Savunma:</label><input type="number" id="cfg-defense" value="15" min="5" max="60" onchange="emitSettings()"></div>
+            <div class="setting-item"><label>⚖️ Karar:</label><input type="number" id="cfg-judgment" value="15" min="5" max="60" onchange="emitSettings()"></div>
+            <div class="setting-item" style="grid-column: span 2;"><label>🌙 Gece Süresi:</label><input type="number" id="cfg-night" value="15" min="5" max="60" onchange="emitSettings()"></div>
+        </div>
+    </div>
+
+    <div class="player-scroll-list">
+        <ul id="player-list" style="list-style: none; padding: 0; margin: 0;"></ul>
+    </div>
+    
+    <button id="start-btn" class="btn-gold hidden" onclick="startGame()">▶️ Oyunu Başlat</button>
+</div>
+
+<div id="game-screen" class="hidden">
+    <div id="top-bar">
+        <div class="header-top-row">
+            <div class="role-display">
+                <span>Rolün:</span>
+                <span id="my-role-badge" class="role-pill Town">Doktor</span>
+                <button id="baskan-reveal-btn" class="btn-gold hidden" style="width:auto; padding: 4px 12px; margin:0;" onclick="revealBaskan()">👑 Kendini İfşa Et (+3 Oy)</button>
+            </div>
+            <div class="header-actions">
+                <button class="header-btn btn-cyan" onclick="openRoleModal()">📜 Rol Bilgileri</button>
+            </div>
+        </div>
+
+        <div id="phase-title" class="phase-header">🌙 GECE VAKTİ (15s)</div>
+        <div id="phase-subtext" class="phase-subtext">Gece Eylemi Hedefi: Seçilmedi</div>
+
+        <div id="judgment-bar" class="judgment-bar hidden">
+            <div id="btn-guilty" class="judgment-pill guilty" onclick="castJudgment('GUILTY')">⭕ SUÇLU</div>
+            <div id="btn-innocent" class="judgment-pill innocent" onclick="castJudgment('INNOCENT')">⭕ SUÇSUZ</div>
+            <div id="btn-abstain" class="judgment-pill abstain" onclick="castJudgment('ABSTAIN')">⚪ PAS / GEÇ</div>
+        </div>
+
+        <button id="arso-ignite-btn" class="btn-danger hidden" style="width:200px; margin-top:8px;" onclick="handleNightAction('IGNITE')">🔥 HERKESİ YAK (Ateşle)</button>
+        <div id="wizard-tools" class="night-role-tools hidden">
+            <select id="wizard-power-select" aria-label="Kontrol edilecek kişi"></select>
+            <select id="wizard-target-select" aria-label="Yönlendirilecek hedef"></select>
+            <button class="btn-action-pink" onclick="useWizardPower()">🪄 Gücü Kullan</button>
+        </div>
+        <div id="duyucu-tools" class="night-role-tools hidden">
+            <button class="btn-action-purple" onclick="setDuyucuChatMode('hainler')">👹 Hainlerle Konuş</button>
+            <button class="btn-action-purple" onclick="setDuyucuChatMode('ölüler')">💀 Ölülerle Konuş</button>
+        </div>
+        <button id="pass-vote-btn" class="judgment-pill abstain hidden" style="margin-top:8px;" onclick="handleVote('PAS')">⚪ GÜNÜ GEÇ (Oylama Pas)</button>
+    </div>
+
+    <div class="game-body">
+        <div class="main-panel">
+            <div id="player-grid" class="player-grid"></div>
+        </div>
+
+        <div class="chat-panel">
+            <div id="chat-log" class="chat-log"></div>
+            <div class="chat-row">
+                <input type="text" id="chat-input" placeholder="Mesaj yaz veya oyuncudan 'Fısılda' seç..." onkeydown="if(event.key==='Enter') sendChat()">
+                <button class="btn-gold" style="width: 80px;" onclick="sendChat()">Gönder</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="suikast-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+        <h3 style="color: #ef4444;">🎯 Suikast Eylemi</h3>
+        <p id="suikast-target-name"></p>
+        <select id="suikast-role-select">
+            <option value="Doktor">Doktor</option>
+            <option value="Gözcü">Gözcü</option>
+            <option value="Ayakçı">Ayakçı</option>
+            <option value="Casus">Casus</option>
+            <option value="Medyum">Medyum</option>
+            <option value="Vigilante">Vigilante</option>
+            <option value="Uyutucu">Uyutucu</option>
+            <option value="Başkan">Başkan</option>
+            <option value="Gizleyici">Gizleyici</option>
+            <option value="Düz Hain">Düz Hain</option>
+            <option value="Suikastçi">Suikastçi</option>
+            <option value="Susturucu">Susturucu</option>
+            <option value="Büyücü Hain">Büyücü Hain</option>
+            <option value="Duyucu Hain">Duyucu Hain</option>
+            <option value="Düz Köylü">Düz Köylü</option>
+            <option value="Seri Katil">Seri Katil</option>
+            <option value="Jester">Jester</option>
+            <option value="Hırsız">Hırsız</option>
+            <option value="Kundakçı">Kundakçı</option>
+        </select>
+        <button class="btn-danger" onclick="confirmSuikast()">Ateş Et!</button>
+        <button class="btn-gold" onclick="closeSuikastModal()">İptal</button>
+    </div>
+</div>
+
+<div id="role-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+        <h2 style="color: #f59e0b; margin-top:0;">📜 Oyundaki Roller</h2>
+        <h3 style="color: #38bdf8; margin: 16px 0 10px;">🏘️ Köy Takımı</h3>
+        <div class="role-list-item"><strong>🔍 Gözcü:</strong> Gece seçtiği oyuncunun evine kimlerin gittiğini öğrenir.</div>
+        <div class="role-list-item"><strong>🔮 Kahin Köylü:</strong> Seçtiği eve gelenlerin kim olduğunu değil, rollerini öğrenir; kimse gelmediyse bunu bildirir.</div>
+        <div class="role-list-item"><strong>👟 Ayakçı:</strong> Gece seçtiği oyuncunun başka bir oyuncuyu ziyaret edip etmediğini ve hedefini öğrenir.</div>
+        <div class="role-list-item"><strong>🔮 Medyum:</strong> Ölü oyuncuların sohbet mesajlarını duyabilir.</div>
+        <div class="role-list-item"><strong>🕵️ Casus:</strong> Gündüz fısıltılarını gizlice görür.</div>
+        <div class="role-list-item"><strong>💤 Uyutucu:</strong> Gece seçtiği oyuncunun eylemini iptal eder.</div>
+        <div class="role-list-item"><strong>🪤 Tuzakçı Köylü:</strong> Seçtiği eve gidenlerin rol gücünü kullandırmaz. Seri Katil ve Kundakçı bu tuzaktan etkilenmez.</div>
+        <div class="role-list-item"><strong>🏥 Doktor:</strong> Gece seçtiği bir oyuncuyu saldırılardan korur.</div>
+        <div class="role-list-item"><strong>👑 Başkan:</strong> Kendini ifşa ederse oy gücü 3 olur; yaşadığı sürece Hainlerin ve Seri Katilin kazanmasını engeller.</div>
+        <div class="role-list-item"><strong>🔫 Vigilante:</strong> Gece sınırlı mermisiyle bir oyuncuya saldırır; masum birini vurursa vicdan azabıyla ölür.</div>
+        <div class="role-list-item"><strong>👤 Düz Köylü:</strong> Özel eylemi yoktur; gündüz sohbet ve oylamalarla tehditleri bulur.</div>
+
+        <h3 style="color: #f87171; margin: 16px 0 10px;">👹 Hain Takımı</h3>
+        <div class="role-list-item evil"><strong>🕵️ Gizleyici:</strong> Gece silahı taşıyıp saldırıyı gerçekleştirir; öldürdüğü kişinin rolünü gizler.</div>
+        <div class="role-list-item evil"><strong>👹 Düz Hain:</strong> Hainlerle birlikte hareket eder ve silah kendisine geçtiğinde gece saldırır.</div>
+        <div class="role-list-item evil"><strong>🌑 Gölge Ajanı:</strong> Gece bir oyuncunun rolünü öğrenir; sabah yalnızca kendi evinin üstünde bu rolü görür.</div>
+        <div class="role-list-item evil"><strong>🎯 Suikastçi:</strong> Gündüz bir oyuncunun rolünü doğru tahmin ederse onu öldürür; yanlış tahmin ederse kendisi ölür. Hain saldırı gücü üçüncü sıradadır.</div>
+        <div class="role-list-item evil"><strong>🤐 Susturucu:</strong> Silahı taşıdığı zaman saldırır; taşımadığı zaman gece bir oyuncuyu ertesi gün susturur.</div>
+        <div class="role-list-item evil"><strong>🪄 Büyücü Hain:</strong> Gece bir rolün gücünü ele geçirip başka bir hedefe kullandırır. Kontrol edilen rol o gece eylem yapamaz; Kundakçı kontrol edilemez.</div>
+        <div class="role-list-item evil"><strong>👂 Duyucu Hain:</strong> Gündüz fısıltılarını görür. Gece hainlerle veya ölülerle konuşabilir; ölüler onu Gizemli Hain olarak görür.</div>
+        <div class="role-list-item evil"><strong>🎭 Hain Köylü:</strong> Rastgele bir köy rolüyle oynar ve o rolün normal yeteneğini kullanır, ancak hain takımındadır ve silah alamaz. Vigilante olursa 2 mermisi vardır ve masum vurduğunda ölmez; hain takımında tek kaldığında üç gün dayanırsa kazanır.</div>
+
+        <h3 style="color: #c084fc; margin: 16px 0 10px;">⚖️ Tarafsız (Neutral) Takımı</h3>
+        <div class="role-list-item neutral"><strong>🎭 Jester:</strong> Gündüz oylamasıyla idam edilirse kendi özel zaferini kazanır.</div>
+        <div class="role-list-item neutral"><strong>🔪 Seri Katil:</strong> Her gece bir oyuncuya saldırır ve diğer tehditler yokken çoğunluğa ulaşarak kazanmaya çalışır. Saldırı gücü ikinci sıradadır.</div>
+        <div class="role-list-item neutral"><strong>🔥 Kundakçı:</strong> Geceleri bir oyuncuyu gizlice yağlar; yağlanan evleri ve o evlere gidenleri ateşe verir. Gizleyici ve Seri Katil dışındaki saldırılar Kundakçı üzerinde başarısız olur.</div>
+        <div class="role-list-item neutral"><strong>🎭 Hırsız:</strong> Gündüz yaşayan bir oyuncuyu öldürür ve onun rolünü çalar.</div>
+        <button class="btn-gold" style="margin-top: 15px;" onclick="closeRoleModal()">Kapat</button>
+    </div>
+</div>
+
+<div id="game-over-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+        <h1 id="winner-title" style="color: #f59e0b; margin-top:0;">🎉 KAZANAN!</h1>
+        <p id="winner-msg" style="font-size: 16px; margin: 20px 0;"></p>
+        <button class="btn-gold" onclick="returnToLobby()">🔄 Lobiye Dön</button>
+    </div>
+</div>
+
+<script>
+    const socket = io();
+    let currentRoomCode = '';
+    let myRole = '';
+    let selectedTargetId = null;
+    let selectedTargetName = '';
+    let isHost = false;
+    let latestPlayers = [];
+    let suikastTargetId = null;
+    let duyucuChatMode = 'hainler';
+
+    function createRoom() {
+        const username = document.getElementById('username').value.trim();
+        if (!username) return alert('Lütfen kullanıcı adı girin!');
+        socket.emit('createRoom', { username });
+    }
+
+    function joinRoom() {
+        const username = document.getElementById('username').value.trim();
+        const roomCode = document.getElementById('roomCode').value.trim();
+        if (!username || !roomCode) return alert('İsim ve Oda Kodu yazın!');
+        socket.emit('joinRoom', { username, roomCode });
+    }
+
+    function startGame() { socket.emit('startGame', { roomCode: currentRoomCode }); }
+    function returnToLobby() { socket.emit('returnToLobby', { roomCode: currentRoomCode }); }
+
+    function readNormalRoleCounts() {
+        return Object.fromEntries([...document.querySelectorAll('#normal-role-counters input[data-role]')]
+            .map(input => [input.dataset.role, parseInt(input.value) || 0]));
+    }
+
+    function applyNormalRoleCounts(roleCounts) {
+        Object.entries(roleCounts || {}).forEach(([role, count]) => {
+            const input = document.querySelector(`#normal-role-counters input[data-role="${role}"]`);
+            if (input) input.value = count ?? 0;
+        });
+    }
+
+    function emitSettings() {
+        if (!isHost) return;
+        const settings = {
+            korumaKoylusuCount: parseInt(document.getElementById('cfg-koruma-koylusu').value) || 0,
+            silahliKoyluCount: parseInt(document.getElementById('cfg-silahli-koylu').value) || 0,
+            arastirmaciKoyluCount: parseInt(document.getElementById('cfg-arastirmaci-koylu').value) || 0,
+            hainKoyluCount: parseInt(document.getElementById('cfg-hain-koylu').value) || 0,
+            normalRoleCounts: readNormalRoleCounts(),
+            silahliHainCount: parseInt(document.getElementById('cfg-silahli-hain').value) || 0,
+            destekciHainCount: parseInt(document.getElementById('cfg-destekci-hain').value) || 0,
+            silahliTarafsizCount: parseInt(document.getElementById('cfg-silahli-tarafsiz').value) || 0,
+            normalTarafsizCount: parseInt(document.getElementById('cfg-normal-tarafsiz').value) || 0,
+            dayTime: parseInt(document.getElementById('cfg-day').value) || 25,
+            voteTime: parseInt(document.getElementById('cfg-vote').value) || 20,
+            defenseTime: parseInt(document.getElementById('cfg-defense').value) || 15,
+            judgmentTime: parseInt(document.getElementById('cfg-judgment').value) || 15,
+            nightTime: parseInt(document.getElementById('cfg-night').value) || 15
+        };
+        socket.emit('updateSettings', { roomCode: currentRoomCode, settings });
+    }
+
+    function applySettingsToInputs(settings) {
+        if (!settings) return;
+        document.getElementById('cfg-koruma-koylusu').value = settings.korumaKoylusuCount ?? 0;
+        document.getElementById('cfg-silahli-koylu').value = settings.silahliKoyluCount ?? 0;
+        document.getElementById('cfg-arastirmaci-koylu').value = settings.arastirmaciKoyluCount ?? 0;
+        document.getElementById('cfg-hain-koylu').value = settings.hainKoyluCount ?? 0;
+        applyNormalRoleCounts(settings.normalRoleCounts);
+        document.getElementById('cfg-silahli-hain').value = settings.silahliHainCount ?? 0;
+        document.getElementById('cfg-destekci-hain').value = settings.destekciHainCount ?? 0;
+        document.getElementById('cfg-silahli-tarafsiz').value = settings.silahliTarafsizCount ?? 0;
+        document.getElementById('cfg-normal-tarafsiz').value = settings.normalTarafsizCount ?? 0;
+
+        document.getElementById('cfg-day').value = settings.dayTime;
+        document.getElementById('cfg-vote').value = settings.voteTime;
+        document.getElementById('cfg-defense').value = settings.defenseTime;
+        document.getElementById('cfg-judgment').value = settings.judgmentTime;
+        document.getElementById('cfg-night').value = settings.nightTime;
+    }
+
+    function setInputsDisabled(disabled) {
+        const ids = ['cfg-koruma-koylusu', 'cfg-silahli-koylu', 'cfg-arastirmaci-koylu', 'cfg-silahli-hain', 'cfg-destekci-hain', 'cfg-hain-koylu', 'cfg-silahli-tarafsiz', 'cfg-normal-tarafsiz', 'cfg-day', 'cfg-vote', 'cfg-defense', 'cfg-judgment', 'cfg-night'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = disabled;
+        });
+        document.querySelectorAll('#normal-role-counters input').forEach(input => input.disabled = disabled);
+    }
+
+    function openRoleModal() { document.getElementById('role-modal').classList.remove('hidden'); }
+    function closeRoleModal() { document.getElementById('role-modal').classList.add('hidden'); }
+
+    function revealBaskan() { socket.emit('revealBaskan', { roomCode: currentRoomCode }); }
+
+    function openSuikastModal(targetId, targetName) {
+        suikastTargetId = targetId;
+        document.getElementById('suikast-target-name').innerText = `${targetName} isimli oyuncunun rolü ne?`;
+        document.getElementById('suikast-modal').classList.remove('hidden');
+    }
+    function closeSuikastModal() { document.getElementById('suikast-modal').classList.add('hidden'); }
+    function confirmSuikast() {
+        const guessedRole = document.getElementById('suikast-role-select').value;
+        socket.emit('suikastAction', { roomCode: currentRoomCode, targetId: suikastTargetId, guessedRole });
+        closeSuikastModal();
+    }
+
+    function hirsizVur(targetId) {
+        if (confirm('Bu oyuncuyu vurup rolünü çalmak istediğinize emin misiniz?')) {
+            socket.emit('hirsizAction', { roomCode: currentRoomCode, targetId });
+        }
+    }
+
+    socket.on('roomCreated', ({ roomCode, settings }) => {
+        currentRoomCode = roomCode;
+        isHost = true;
+        showLobby(roomCode);
+        document.getElementById('start-btn').classList.remove('hidden');
+        document.getElementById('host-tag').innerText = '(Kurucu)';
+        setInputsDisabled(false);
+        applySettingsToInputs(settings);
+    });
+
+    socket.on('joinedRoom', ({ roomCode, settings }) => {
+        currentRoomCode = roomCode;
+        isHost = false;
+        showLobby(roomCode);
+        document.getElementById('host-tag').innerText = '(Kurucu Ayarlıyor)';
+        setInputsDisabled(true);
+        applySettingsToInputs(settings);
+    });
+
+    socket.on('returnedToLobby', ({ settings, hostId }) => {
+        document.getElementById('game-over-modal').classList.add('hidden');
+        document.getElementById('game-screen').classList.add('hidden');
+        document.getElementById('lobby-screen').classList.remove('hidden');
+        document.getElementById('chat-log').innerHTML = '';
+
+        isHost = (socket.id === hostId);
+        if (isHost) {
+            document.getElementById('start-btn').classList.remove('hidden');
+            document.getElementById('host-tag').innerText = '(Kurucu)';
+            setInputsDisabled(false);
+        } else {
+            document.getElementById('start-btn').classList.add('hidden');
+            document.getElementById('host-tag').innerText = '(Kurucu Ayarlıyor)';
+            setInputsDisabled(true);
+        }
+        applySettingsToInputs(settings);
+    });
+
+    socket.on('settingsUpdated', (settings) => applySettingsToInputs(settings));
+
+    socket.on('updatePlayerList', (players) => {
+        const list = document.getElementById('player-list');
+        list.innerHTML = players.map(p => `<li style="padding: 4px 0; font-size:13px;">👤 ${p.username} ${p.isHost ? '👑' : ''}</li>`).join('');
+    });
+
+    socket.on('yourRole', ({ role, isHain }) => {
+        myRole = role;
+        const badge = document.getElementById('my-role-badge');
+        badge.innerText = role;
+        if (isHain || (role && ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Duyucu Hain'].includes(role))) {
+            badge.className = 'role-pill Hain';
+        } else if (['Seri Katil', 'Jester', 'Hırsız', 'Kundakçı'].includes(role)) {
+            badge.className = 'role-pill Neutral';
+        } else {
+            badge.className = 'role-pill Town';
+        }
+    });
+
+    socket.on('gameStarted', () => {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('lobby-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+    });
+
+    socket.on('gameStateUpdate', ({ players, wizardTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain }) => {
+        latestPlayers = players;
+        const phaseTitle = document.getElementById('phase-title');
+        const phaseSubtext = document.getElementById('phase-subtext');
+        const passBtn = document.getElementById('pass-vote-btn');
+        const judgmentBar = document.getElementById('judgment-bar');
+        const arsoBtn = document.getElementById('arso-ignite-btn');
+        const wizardTools = document.getElementById('wizard-tools');
+        const duyucuTools = document.getElementById('duyucu-tools');
+        const baskanBtn = document.getElementById('baskan-reveal-btn');
+
+        const myPlayer = players.find(p => p.id === socket.id);
+        const amIAlive = myPlayer ? myPlayer.isAlive : false;
+
+        passBtn.classList.add('hidden');
+        judgmentBar.classList.add('hidden');
+        arsoBtn.classList.add('hidden');
+        wizardTools.classList.add('hidden');
+        duyucuTools.classList.add('hidden');
+        baskanBtn.classList.add('hidden');
+
+        if ((phase === 'DAY' || phase === 'VOTE') && dayNumber > 1 && myRole === 'Başkan' && amIAlive && !isRevealed) {
+            baskanBtn.classList.remove('hidden');
+        }
+
+        if (phase === 'DAY') {
+            phaseTitle.innerText = `☀️ GECE BİTTİ (${timeLeft}s)`;
+            phaseSubtext.innerText = `${dayNumber}. Gün başladı. Kasaba sohbet ediyor.`;
+        } else if (phase === 'VOTE') {
+            phaseTitle.innerText = `⚖️ OYLAMA (${timeLeft}s)`;
+            phaseSubtext.innerText = selectedTargetName ? `Seçilen hedef: ${selectedTargetName}` : 'Seçilen hedef: Yok';
+            if (amIAlive) passBtn.classList.remove('hidden');
+        } else if (phase === 'DEFENSE') {
+            const defName = players.find(p => p.id === defendantId)?.username || 'Sanık';
+            phaseTitle.innerText = `📢 SAVUNMA VAKTİ (${timeLeft}s)`;
+            phaseSubtext.innerText = `${defName} sanık kürsüsünde kendini savunuyor.`;
+        } else if (phase === 'JUDGMENT') {
+            phaseTitle.innerText = `🛡️ KARAR VAKTİ (${timeLeft}s)`;
+            phaseSubtext.innerText = selectedTargetName ? `Kararın: ${selectedTargetName}` : 'Kararınızı seçiniz';
+            if (amIAlive && socket.id !== defendantId) {
+                judgmentBar.classList.remove('hidden');
+            }
+        } else if (phase === 'NIGHT') {
+            phaseTitle.innerText = `🌙 GECE VAKTİ (${timeLeft}s)`;
+            phaseSubtext.innerText = selectedTargetName ? `Gece Eylemi Hedefi: ${selectedTargetName}` : 'Gece Eylemi Hedefi: Henüz Seçilmedi';
+            if (myRole === 'Kundakçı' && amIAlive) arsoBtn.classList.remove('hidden');
+            if (myRole === 'Büyücü Hain' && amIAlive && !hasGun) {
+                setupWizardTools(wizardTargets, players);
+                wizardTools.classList.remove('hidden');
+            }
+            if (myRole === 'Duyucu Hain' && amIAlive) duyucuTools.classList.remove('hidden');
+        }
+
+        const grid = document.getElementById('player-grid');
+        grid.innerHTML = '';
+
+        players.forEach(p => {
+            const isMe = p.id === socket.id;
+            let actionBtnHtml = '';
+            let whisperBtnHtml = '';
+            let suikastBtnHtml = '';
+            let hirsizBtnHtml = '';
+
+            if (amIAlive) {
+                if (p.isAlive && !isMe && phase !== 'NIGHT') {
+                    whisperBtnHtml = `<button class="card-btn btn-action-purple" onclick="handleWhisper('${p.id}')">💬 Fısılda</button>`;
+                }
+
+                if (p.isAlive && !isMe && (phase === 'DAY' || phase === 'VOTE')) {
+                    if (myRole === 'Suikastçi' && dayNumber > 1 && !hasAssassinated) {
+                        suikastBtnHtml = `<button class="card-btn btn-danger" onclick="openSuikastModal('${p.id}', '${p.username}')">🎯 Suikast Yap</button>`;
+                    }
+                    if (myRole === 'Hırsız' && dayNumber > 1 && !hasStolen) {
+                        hirsizBtnHtml = `<button class="card-btn btn-action-pink" onclick="hirsizVur('${p.id}')">🎭 Rolünü Çal</button>`;
+                    }
+                }
+
+                if (p.isAlive) {
+                    if (phase === 'VOTE' && !isMe) {
+                        actionBtnHtml = `<button class="card-btn btn-action-yellow" onclick="handleVote('${p.id}')">🗳️ Oy Ver</button>`;
+                    } else if (phase === 'NIGHT') {
+                        if (!['Düz Köylü', 'Medyum', 'Casus', 'Büyücü Hain', 'Başkan', 'Hırsız'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun)) {
+                            let btnLabel = '🎯 Eylem';
+                            if (myRole === 'Doktor') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
+                            else if (['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante'].includes(myRole)) btnLabel = '🎯 Saldır';
+                            else if (myRole === 'Gölge Ajanı') btnLabel = hasGun ? '🎯 Saldır' : '🌑 Rolünü Öğren';
+                            else if (myRole === 'Kahin Köylü') btnLabel = '🔮 İncele';
+                            else if (myRole === 'Tuzakçı Köylü') btnLabel = '🪤 Tuzak Kur';
+                            else if (myRole === 'Susturucu') btnLabel = hasGun ? '🎯 Saldır' : '🤐 Sustur';
+                            else if (myRole === 'Gözcü' || myRole === 'Ayakçı') btnLabel = '🔍 İzle';
+                            else if (myRole === 'Uyutucu') btnLabel = '💤 Uyut';
+                            else if (myRole === 'Kundakçı') btnLabel = '🛢️ Yağla';
+                            else if (myRole === 'Jester') btnLabel = '🛡️ Kalkan Aç (1 Hak)';
+
+                            // Jester Kalkanı Kullanıldıysa Buton Kapansın!
+                            if (myRole === 'Jester') {
+                                if (isMe && jesterShield > 0) {
+                                    actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">${btnLabel}</button>`;
+                                }
+                            } else if (!isMe || myRole === 'Doktor') {
+                                actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">${btnLabel}</button>`;
+                            }
+                        }
+                    }
+                }
+            }
+
+            const isSelected = selectedTargetId === p.id;
+            let roleTagHtml = '';
+            const shadowRoleHtml = p.shadowRole ? `<div class="role-tag">🌑 ${p.shadowRole}</div>` : '';
+            if (!p.isAlive && p.role) {
+                roleTagHtml = `<div class="role-tag">💀 ${p.role}</div>`;
+            }
+
+            const isAllyTraitor = p.isAllyTraitor;
+            const nameClass = isAllyTraitor ? 'player-name text-red' : 'player-name';
+            const allyTag = isAllyTraitor && !isMe ? `<span style="font-size:10px; color:#ef4444; font-weight:bold;">[HAİN MÜTTEFİK]</span>` : '';
+            const baskanTag = p.isRevealed ? `<span style="font-size:10px; color:#eab308; font-weight:bold;">[👑 BAŞKAN]</span>` : '';
+            const dousedTag = p.isDoused ? `<span style="font-size:10px; color:#f97316; font-weight:bold;">[🔥 EVİ YAĞLANDI]</span>` : '';
+
+            grid.innerHTML += `
+                <div class="player-card ${!p.isAlive ? 'dead' : ''} ${isSelected ? 'selected' : ''} ${isAllyTraitor ? 'traitor-ally' : ''}" data-id="${p.id}">
+                    <div>
+                        ${shadowRoleHtml}
+                        <div class="house-icon">🏠</div>
+                        <div class="${nameClass}">${p.username} ${isMe ? '(Sen)' : ''}</div>
+                        ${allyTag}
+                        ${baskanTag}
+                        ${dousedTag}
+                        ${roleTagHtml}
+                    </div>
+                    <div style="width: 100%;">
+                        ${actionBtnHtml}
+                        ${suikastBtnHtml}
+                        ${hirsizBtnHtml}
+                        ${whisperBtnHtml}
+                    </div>
+                </div>
+            `;
+        });
+    });
+
+    function highlightSelectedCard(targetId) {
+        selectedTargetId = targetId;
+        document.querySelectorAll('.player-card').forEach(card => {
+            if (card.dataset.id === targetId) card.classList.add('selected');
+            else card.classList.remove('selected');
+        });
+    }
+
+    function handleNightAction(targetId) {
+        const targetPlayer = latestPlayers.find(p => p.id === targetId);
+        nightAction(targetId, targetId === 'IGNITE' ? '🔥 HERKESİ YAK' : (targetPlayer ? targetPlayer.username : 'Bilinmeyen'));
+    }
+
+    function handleVote(targetId) {
+        const targetPlayer = latestPlayers.find(p => p.id === targetId);
+        castVote(targetId, targetId === 'PAS' ? 'PAS' : (targetPlayer ? targetPlayer.username : 'Bilinmeyen'));
+    }
+
+    function handleWhisper(targetId) {
+        const targetPlayer = latestPlayers.find(p => p.id === targetId);
+        if (targetPlayer) prepareWhisper(targetPlayer.username);
+    }
+
+    function setupWizardTools(wizardTargets, players) {
+        const powerSelect = document.getElementById('wizard-power-select');
+        const targetSelect = document.getElementById('wizard-target-select');
+        powerSelect.innerHTML = wizardTargets.length
+            ? wizardTargets.map(player => `<option value="${player.id}">${player.username}</option>`).join('')
+            : '<option value="">Ele geçirilecek kişi yok</option>';
+        targetSelect.innerHTML = players.filter(p => p.isAlive && p.id !== socket.id)
+            .map(p => `<option value="${p.id}">${p.username}</option>`).join('');
+    }
+
+    function useWizardPower() {
+        const powerRole = document.getElementById('wizard-power-select').value;
+        const targetId = document.getElementById('wizard-target-select').value;
+        if (!powerRole || !targetId) return;
+        socket.emit('wizardAction', { roomCode: currentRoomCode, powerRole, targetId });
+    }
+
+    function setDuyucuChatMode(mode) {
+        duyucuChatMode = mode;
+        const input = document.getElementById('chat-input');
+        input.value = mode === 'ölüler' ? '/ölüler ' : '';
+        input.placeholder = mode === 'ölüler' ? 'Ölüler sohbetine mesaj yaz...' : 'Hainler sohbetine mesaj yaz...';
+        input.focus();
+    }
+
+    socket.on('phaseChangeClearTarget', () => {
+        selectedTargetId = null;
+        selectedTargetName = '';
+        highlightSelectedCard(null);
+        resetJudgmentUI();
+    });
+
+    socket.on('timerUpdate', (time) => {
+        const titleEl = document.getElementById('phase-title');
+        titleEl.innerText = titleEl.innerText.replace(/\(\d+s\)/, `(${time}s)`);
+    });
+
+    function prepareWhisper(targetUsername) {
+        const input = document.getElementById('chat-input');
+        input.value = `/fısıltı ${targetUsername} `;
+        input.focus();
+    }
+
+    function sendChat() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if (!text) return;
+        const isNight = document.getElementById('phase-title').innerText.includes('GECE VAKTİ');
+        const message = myRole === 'Duyucu Hain' && isNight && duyucuChatMode === 'ölüler' && !text.startsWith('/ölüler ')
+            ? `/ölüler ${text}`
+            : (myRole === 'Duyucu Hain' && isNight && duyucuChatMode === 'hainler' && !text.startsWith('/hainler ')
+                ? `/hainler ${text}` : text);
+        socket.emit('sendMessage', { roomCode: currentRoomCode, text: message });
+        input.value = '';
+    }
+
+    socket.on('chatMessage', ({ sender, text, type }) => {
+        const log = document.getElementById('chat-log');
+        let prefix = '';
+        if (type === 'hain') prefix = '[HAİN SOHBETİ] ';
+        else if (type === 'dead') prefix = '[ÖLÜ SOHBETİ] ';
+        else if (type === 'spy') prefix = '[CASUS SOHBETİ] ';
+
+        log.innerHTML += `<div class="chat-msg ${type}"><strong>${prefix}${sender ? sender + ': ' : ''}</strong>${text}</div>`;
+        log.scrollTop = log.scrollHeight;
+    });
+
+    socket.on('systemAnnounce', (msg) => {
+        const log = document.getElementById('chat-log');
+        log.innerHTML += `<div class="chat-msg system">${msg}</div>`;
+        log.scrollTop = log.scrollHeight;
+    });
+
+    function castVote(targetId, targetName) {
+        highlightSelectedCard(targetId);
+        selectedTargetName = targetName;
+        document.getElementById('phase-subtext').innerText = `Seçilen hedef: ${targetName}`;
+        socket.emit('castVote', { roomCode: currentRoomCode, targetId });
+    }
+
+    function castJudgment(verdict) {
+        resetJudgmentUI();
+        if (verdict === 'GUILTY') {
+            document.getElementById('btn-guilty').classList.add('active');
+            selectedTargetName = 'GUILTY (Suçlu)';
+        } else if (verdict === 'INNOCENT') {
+            document.getElementById('btn-innocent').classList.add('active');
+            selectedTargetName = 'INNOCENT (Suçsuz)';
+        } else {
+            document.getElementById('btn-abstain').classList.add('active');
+            selectedTargetName = 'PAS / GEÇ';
+        }
+        document.getElementById('phase-subtext').innerText = `Kararın: ${selectedTargetName}`;
+        socket.emit('castJudgment', { roomCode: currentRoomCode, verdict });
+    }
+
+    function resetJudgmentUI() {
+        document.getElementById('btn-guilty')?.classList.remove('active');
+        document.getElementById('btn-innocent')?.classList.remove('active');
+        document.getElementById('btn-abstain')?.classList.remove('active');
+    }
+
+    function nightAction(targetId, targetName) {
+        highlightSelectedCard(targetId);
+        selectedTargetName = targetName;
+        document.getElementById('phase-subtext').innerText = `Gece Eylemi Hedefi: ${targetName}`;
+        socket.emit('nightAction', { roomCode: currentRoomCode, targetId });
+    }
+
+    socket.on('actionConfirmed', ({ targetId, targetName }) => {
+        highlightSelectedCard(targetId);
+        selectedTargetName = targetName;
+    });
+
+    function showLobby(code) {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('lobby-screen').classList.remove('hidden');
+        document.getElementById('display-code').innerText = code;
+    }
+
+    socket.on('errorMsg', (msg) => alert(msg));
+    
+    socket.on('gameOver', ({ winner, msg }) => {
+        document.getElementById('winner-title').innerText = `🎉 ${winner} KAZANDI!`;
+        document.getElementById('winner-msg').innerText = msg;
+        document.getElementById('game-over-modal').classList.remove('hidden');
+    });
+</script>
+
+</body>
+</html>
