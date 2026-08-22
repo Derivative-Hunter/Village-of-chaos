@@ -117,6 +117,7 @@
         .role-pill.Hain { background: #f87171; }
         .role-pill.Town { background: #38bdf8; }
         .role-pill.Neutral { background: #a855f7; }
+        .player-name.lover-name { color: #f472b6 !important; }
 
         .header-actions { display: flex; gap: 10px; }
         .header-btn {
@@ -297,6 +298,7 @@
         .chat-msg.whisper { background: rgba(168, 85, 247, 0.2); color: #e9d5ff; border: 1px solid rgba(168, 85, 247, 0.3); }
         .chat-msg.spy { background: rgba(234, 179, 8, 0.2); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.3); }
         .chat-msg.green { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); font-weight: 600; }
+        .chat-msg.lover { background: rgba(236, 72, 153, 0.16); color: #f9a8d4; border: 1px solid rgba(236, 72, 153, 0.35); }
 
         .chat-row { display: flex; gap: 8px; }
 
@@ -306,6 +308,275 @@
         .role-list-item strong { color: #38bdf8; font-size: 14px; }
         .role-list-item.evil strong { color: #f87171; }
         .role-list-item.neutral strong { color: #c084fc; }
+
+        @media (max-width: 700px) {
+            html, body {
+                width: 100%;
+                min-width: 0;
+                height: 100%;
+                overflow-x: hidden;
+            }
+
+            body {
+                overflow-y: auto;
+                -webkit-text-size-adjust: 100%;
+            }
+
+            .card {
+                width: calc(100% - 20px);
+                max-width: none;
+                max-height: none;
+                margin: 10px auto;
+                padding: 16px 12px;
+                border-radius: 12px;
+            }
+
+            input, button, select {
+                max-width: 100%;
+                min-height: 44px;
+                padding: 10px;
+                font-size: 15px;
+            }
+
+            .settings-box {
+                padding: 10px;
+                margin: 10px 0;
+            }
+
+            .setting-grid {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            .role-category {
+                grid-column: 1;
+                padding: 9px 8px;
+            }
+
+            .setting-item {
+                min-width: 0;
+                gap: 8px;
+                align-items: center;
+            }
+
+            .setting-item label {
+                min-width: 0;
+                overflow-wrap: anywhere;
+                line-height: 1.25;
+            }
+
+            .setting-item input {
+                flex: 0 0 64px;
+                width: 64px;
+                min-height: 38px;
+            }
+
+            .role-category .setting-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .player-scroll-list {
+                max-height: 150px;
+                margin: 10px 0;
+            }
+
+            #game-screen {
+                width: 100%;
+                min-height: 100vh;
+                height: auto;
+            }
+
+            #top-bar {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                padding: 10px;
+            }
+
+            .header-top-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+                margin-bottom: 4px;
+            }
+
+            .role-display {
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 6px;
+                font-size: 14px;
+                text-align: center;
+            }
+
+            .role-pill {
+                max-width: 100%;
+                padding: 6px 10px;
+                overflow-wrap: anywhere;
+            }
+
+            .header-actions,
+            .header-btn {
+                width: 100%;
+            }
+
+            .header-btn {
+                justify-content: center;
+                min-height: 42px;
+            }
+
+            .phase-header {
+                justify-content: center;
+                text-align: center;
+                font-size: 18px;
+                line-height: 1.25;
+                overflow-wrap: anywhere;
+            }
+
+            .phase-subtext {
+                max-width: 100%;
+                text-align: center;
+                overflow-wrap: anywhere;
+                line-height: 1.35;
+            }
+
+            .judgment-bar,
+            .night-role-tools {
+                width: 100%;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 6px;
+            }
+
+            .judgment-pill,
+            .night-role-tools select,
+            .night-role-tools button,
+            #arso-ignite-btn,
+            #vigilante-pass-btn,
+            #pass-vote-btn {
+                width: 100% !important;
+                min-width: 0;
+                margin: 0;
+            }
+
+            .game-body {
+                flex-direction: column;
+                overflow: visible;
+                padding: 10px;
+                gap: 10px;
+            }
+
+            .main-panel,
+            .chat-panel {
+                width: 100%;
+                min-width: 0;
+                border-radius: 12px;
+                padding: 10px;
+            }
+
+            .main-panel {
+                overflow: visible;
+            }
+
+            .player-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .player-card {
+                min-width: 0;
+                min-height: 142px;
+                padding: 10px 7px;
+                border-radius: 10px;
+            }
+
+            .player-card .player-name {
+                width: 100%;
+                font-size: 13px;
+            }
+
+            .player-card .house-icon {
+                font-size: 26px;
+            }
+
+            .card-btn {
+                min-height: 40px;
+                padding: 8px 4px;
+                font-size: 12px;
+                line-height: 1.2;
+                white-space: normal;
+                overflow-wrap: anywhere;
+            }
+
+            .chat-panel {
+                min-height: 280px;
+                max-height: 45vh;
+            }
+
+            .chat-log {
+                min-height: 150px;
+                padding: 9px;
+                font-size: 13px;
+            }
+
+            .chat-row {
+                align-items: stretch;
+            }
+
+            .chat-row input {
+                min-width: 0;
+                margin: 0;
+            }
+
+            .chat-row button {
+                flex: 0 0 78px;
+                width: 78px !important;
+                margin: 0;
+            }
+
+            .modal-overlay {
+                align-items: flex-start;
+                padding: 10px;
+                overflow-y: auto;
+            }
+
+            .modal-card {
+                width: 100%;
+                max-width: none;
+                max-height: calc(100vh - 20px);
+                padding: 16px 12px;
+                border-radius: 12px;
+            }
+
+            .role-list-item {
+                padding: 9px;
+                font-size: 13px;
+                line-height: 1.35;
+                overflow-wrap: anywhere;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .player-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .player-card {
+                min-height: 130px;
+            }
+
+            .chat-row {
+                flex-direction: column;
+            }
+
+            .chat-row button {
+                flex-basis: auto;
+                width: 100% !important;
+            }
+
+            .role-display {
+                font-size: 13px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -334,7 +605,7 @@
             <div class="role-category town">
                 <h5>🔫 Köy Takımı · Silahlı Köylüler</h5>
                 <div class="setting-grid">
-                    <div class="setting-item"><label>Rol sayısı (Vigilante / Başkan):</label><input type="number" id="cfg-silahli-koylu" value="0" min="0" max="2" onchange="emitSettings()"></div>
+                    <div class="setting-item"><label>Rol sayısı (Vigilante / Başkan / Düzenbaz / Avcı):</label><input type="number" id="cfg-silahli-koylu" value="0" min="0" max="4" onchange="emitSettings()"></div>
                 </div>
             </div>
             <div class="role-category town">
@@ -343,10 +614,16 @@
                     <div class="setting-item"><label>Rol sayısı (Ayakçı / Gözcü / Medyum / Casus / Kahin):</label><input type="number" id="cfg-arastirmaci-koylu" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 </div>
             </div>
+            <div class="role-category town">
+                <h5>💗 Aşıklar</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Aşık çift sayısı:</label><input type="number" id="cfg-asik" value="0" min="0" max="1" onchange="emitSettings()"></div>
+                </div>
+            </div>
             <div class="role-category hain">
                 <h5>👹 Hain Takımı · Silahlı Hainler</h5>
                 <div class="setting-grid">
-                    <div class="setting-item"><label>Rol sayısı (Gizleyici / Düz Hain):</label><input type="number" id="cfg-silahli-hain" value="1" min="0" max="2" onchange="emitSettings()"></div>
+                    <div class="setting-item"><label>Rol sayısı (Gizleyici / Düz Hain / Ninja):</label><input type="number" id="cfg-silahli-hain" value="1" min="0" max="3" onchange="emitSettings()"></div>
                 </div>
             </div>
             <div class="role-category hain">
@@ -384,6 +661,8 @@
                 <div class="setting-item"><label>Uyutucu</label><input type="number" id="cfg-role-uyutucu" data-role="Uyutucu" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Vigilante</label><input type="number" id="cfg-role-vigilante" data-role="Vigilante" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Başkan</label><input type="number" id="cfg-role-baskan" data-role="Başkan" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Düzenbaz Köylü</label><input type="number" id="cfg-role-duzenbaz" data-role="Düzenbaz Köylü" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Avcı Köylü</label><input type="number" id="cfg-role-avci" data-role="Avcı Köylü" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Ayakçı</label><input type="number" id="cfg-role-ayakci" data-role="Ayakçı" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Gözcü</label><input type="number" id="cfg-role-gozcu" data-role="Gözcü" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Medyum</label><input type="number" id="cfg-role-medyum" data-role="Medyum" value="0" min="0" max="5" onchange="emitSettings()"></div>
@@ -392,6 +671,7 @@
                 <div class="setting-item"><label>Tuzakçı Köylü</label><input type="number" id="cfg-role-tuzakci" data-role="Tuzakçı Köylü" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Gizleyici</label><input type="number" id="cfg-role-gizleyici" data-role="Gizleyici" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Düz Hain</label><input type="number" id="cfg-role-duz-hain" data-role="Düz Hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Ninja Hain</label><input type="number" id="cfg-role-ninja" data-role="Ninja Hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Suikastçi</label><input type="number" id="cfg-role-suikastci" data-role="Suikastçi" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Gölge Ajanı</label><input type="number" id="cfg-role-golge" data-role="Gölge Ajanı" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Susturucu</label><input type="number" id="cfg-role-susturucu" data-role="Susturucu" value="0" min="0" max="5" onchange="emitSettings()"></div>
@@ -444,6 +724,7 @@
         </div>
 
         <button id="arso-ignite-btn" class="btn-danger hidden" style="width:200px; margin-top:8px;" onclick="handleNightAction('IGNITE')">🔥 HERKESİ YAK (Ateşle)</button>
+        <button id="vigilante-pass-btn" class="btn-gold hidden" style="width:220px; margin-top:8px;" onclick="passNightAction()">↩️ Saldırıyı İptal Et</button>
         <div id="wizard-tools" class="night-role-tools hidden">
             <select id="wizard-power-select" aria-label="Kontrol edilecek kişi"></select>
             <select id="wizard-target-select" aria-label="Yönlendirilecek hedef"></select>
@@ -452,6 +733,10 @@
         <div id="duyucu-tools" class="night-role-tools hidden">
             <button class="btn-action-purple" onclick="setDuyucuChatMode('hainler')">👹 Hainlerle Konuş</button>
             <button class="btn-action-purple" onclick="setDuyucuChatMode('ölüler')">💀 Ölülerle Konuş</button>
+        </div>
+        <div id="lover-tools" class="night-role-tools hidden">
+            <button class="btn-action-purple" onclick="setLoverChatMode()">💗 Aşıklarla Konuş</button>
+            <button id="lover-hain-chat-btn" class="btn-action-pink hidden" onclick="setHainChatMode()">👹 Hainlerle Konuş</button>
         </div>
         <button id="pass-vote-btn" class="judgment-pill abstain hidden" style="margin-top:8px;" onclick="handleVote('PAS')">⚪ GÜNÜ GEÇ (Oylama Pas)</button>
     </div>
@@ -481,15 +766,22 @@
             <option value="Ayakçı">Ayakçı</option>
             <option value="Casus">Casus</option>
             <option value="Medyum">Medyum</option>
+            <option value="Kahin Köylü">Kahin Köylü</option>
             <option value="Vigilante">Vigilante</option>
             <option value="Uyutucu">Uyutucu</option>
             <option value="Başkan">Başkan</option>
+            <option value="Düzenbaz Köylü">Düzenbaz Köylü</option>
+            <option value="Avcı Köylü">Avcı Köylü</option>
+            <option value="Tuzakçı Köylü">Tuzakçı Köylü</option>
             <option value="Gizleyici">Gizleyici</option>
             <option value="Düz Hain">Düz Hain</option>
+            <option value="Ninja Hain">Ninja Hain</option>
             <option value="Suikastçi">Suikastçi</option>
+            <option value="Gölge Ajanı">Gölge Ajanı</option>
             <option value="Susturucu">Susturucu</option>
             <option value="Büyücü Hain">Büyücü Hain</option>
             <option value="Duyucu Hain">Duyucu Hain</option>
+            <option value="Hain Köylü">Hain Köylü</option>
             <option value="Düz Köylü">Düz Köylü</option>
             <option value="Seri Katil">Seri Katil</option>
             <option value="Jester">Jester</option>
@@ -515,17 +807,21 @@
         <div class="role-list-item"><strong>🏥 Doktor:</strong> Gece seçtiği bir oyuncuyu saldırılardan korur.</div>
         <div class="role-list-item"><strong>👑 Başkan:</strong> Kendini ifşa ederse oy gücü 3 olur; yaşadığı sürece Hainlerin ve Seri Katilin kazanmasını engeller.</div>
         <div class="role-list-item"><strong>🔫 Vigilante:</strong> Gece sınırlı mermisiyle bir oyuncuya saldırır; masum birini vurursa vicdan azabıyla ölür.</div>
+        <div class="role-list-item"><strong>🪞 Düzenbaz Köylü:</strong> Gece bir eve gider. O eve gelen eylemler ziyaretçiye yansır; öldürmeye gelen kişi kendini vurur ve Düzenbaz da ölür. Kundakçıdan etkilenmez.</div>
+        <div class="role-list-item"><strong>🎯 Avcı Köylü:</strong> Gece öldürülürse sabah 20 saniye daha yaşar ve bir kişiye ateş edebilir. Ateş etmese de süre sonunda ölür; Kundakçıya ateş ederse Kundakçı ölmez ama ortaya çıkar.</div>
+        <div class="role-list-item"><strong>💗 Aşıklar:</strong> Oyun başında iki köylü veya bir köylü ile bir hain rastgele eşleşir. Birinin ölümü diğerini de öldürür. Gece bir kez aşığını koruyabilir ve gece özel sohbet edebilir. Tarafsızlarla birlikte kazanamazlar.</div>
         <div class="role-list-item"><strong>👤 Düz Köylü:</strong> Özel eylemi yoktur; gündüz sohbet ve oylamalarla tehditleri bulur.</div>
 
         <h3 style="color: #f87171; margin: 16px 0 10px;">👹 Hain Takımı</h3>
         <div class="role-list-item evil"><strong>🕵️ Gizleyici:</strong> Gece silahı taşıyıp saldırıyı gerçekleştirir; öldürdüğü kişinin rolünü gizler.</div>
         <div class="role-list-item evil"><strong>👹 Düz Hain:</strong> Hainlerle birlikte hareket eder ve silah kendisine geçtiğinde gece saldırır.</div>
+        <div class="role-list-item evil"><strong>🌑 Ninja Hain:</strong> Gece bir kez bir eve gider ve o eve gelen herkesi öldürür; Kundakçı etkilenmez. Silahı olsa bile aynı gece ya silahıyla saldırır ya da bu yeteneğini kullanır.</div>
         <div class="role-list-item evil"><strong>🌑 Gölge Ajanı:</strong> Gece bir oyuncunun rolünü öğrenir; sabah yalnızca kendi evinin üstünde bu rolü görür.</div>
         <div class="role-list-item evil"><strong>🎯 Suikastçi:</strong> Gündüz bir oyuncunun rolünü doğru tahmin ederse onu öldürür; yanlış tahmin ederse kendisi ölür. Hain saldırı gücü üçüncü sıradadır.</div>
         <div class="role-list-item evil"><strong>🤐 Susturucu:</strong> Silahı taşıdığı zaman saldırır; taşımadığı zaman gece bir oyuncuyu ertesi gün susturur.</div>
         <div class="role-list-item evil"><strong>🪄 Büyücü Hain:</strong> Gece bir rolün gücünü ele geçirip başka bir hedefe kullandırır. Kontrol edilen rol o gece eylem yapamaz; Kundakçı kontrol edilemez.</div>
         <div class="role-list-item evil"><strong>👂 Duyucu Hain:</strong> Gündüz fısıltılarını görür. Gece hainlerle veya ölülerle konuşabilir; ölüler onu Gizemli Hain olarak görür.</div>
-        <div class="role-list-item evil"><strong>🎭 Hain Köylü:</strong> Rastgele bir köy rolüyle oynar ve o rolün normal yeteneğini kullanır, ancak hain takımındadır ve silah alamaz. Vigilante olursa 2 mermisi vardır ve masum vurduğunda ölmez; hain takımında tek kaldığında üç gün dayanırsa kazanır.</div>
+        <div class="role-list-item evil"><strong>🎭 Hain Köylü:</strong> Rastgele bir köy rolüyle oynar ve o rolün normal yeteneğini kullanır; Düzenbaz Köylü veya Avcı Köylü de olabilir. Hain takımındadır ve silah alamaz. Vigilante olursa 2 mermisi vardır ve masum vurduğunda ölmez; hain takımında tek kaldığında üç gün dayanırsa kazanır.</div>
 
         <h3 style="color: #c084fc; margin: 16px 0 10px;">⚖️ Tarafsız (Neutral) Takımı</h3>
         <div class="role-list-item neutral"><strong>🎭 Jester:</strong> Gündüz oylamasıyla idam edilirse kendi özel zaferini kazanır.</div>
@@ -554,6 +850,7 @@
     let latestPlayers = [];
     let suikastTargetId = null;
     let duyucuChatMode = 'hainler';
+    let loverChatMode = false;
 
     function createRoom() {
         const username = document.getElementById('username').value.trim();
@@ -599,7 +896,8 @@
             voteTime: parseInt(document.getElementById('cfg-vote').value) || 20,
             defenseTime: parseInt(document.getElementById('cfg-defense').value) || 15,
             judgmentTime: parseInt(document.getElementById('cfg-judgment').value) || 15,
-            nightTime: parseInt(document.getElementById('cfg-night').value) || 15
+            nightTime: parseInt(document.getElementById('cfg-night').value) || 15,
+            asikCount: parseInt(document.getElementById('cfg-asik').value) || 0
         };
         socket.emit('updateSettings', { roomCode: currentRoomCode, settings });
     }
@@ -621,10 +919,11 @@
         document.getElementById('cfg-defense').value = settings.defenseTime;
         document.getElementById('cfg-judgment').value = settings.judgmentTime;
         document.getElementById('cfg-night').value = settings.nightTime;
+        document.getElementById('cfg-asik').value = settings.asikCount ?? 0;
     }
 
     function setInputsDisabled(disabled) {
-        const ids = ['cfg-koruma-koylusu', 'cfg-silahli-koylu', 'cfg-arastirmaci-koylu', 'cfg-silahli-hain', 'cfg-destekci-hain', 'cfg-hain-koylu', 'cfg-silahli-tarafsiz', 'cfg-normal-tarafsiz', 'cfg-day', 'cfg-vote', 'cfg-defense', 'cfg-judgment', 'cfg-night'];
+        const ids = ['cfg-koruma-koylusu', 'cfg-silahli-koylu', 'cfg-arastirmaci-koylu', 'cfg-asik', 'cfg-silahli-hain', 'cfg-destekci-hain', 'cfg-hain-koylu', 'cfg-silahli-tarafsiz', 'cfg-normal-tarafsiz', 'cfg-day', 'cfg-vote', 'cfg-defense', 'cfg-judgment', 'cfg-night'];
         ids.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.disabled = disabled;
@@ -719,15 +1018,18 @@
         document.getElementById('game-screen').classList.remove('hidden');
     });
 
-    socket.on('gameStateUpdate', ({ players, wizardTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain }) => {
+    socket.on('gameStateUpdate', ({ players, wizardTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed }) => {
         latestPlayers = players;
         const phaseTitle = document.getElementById('phase-title');
         const phaseSubtext = document.getElementById('phase-subtext');
         const passBtn = document.getElementById('pass-vote-btn');
         const judgmentBar = document.getElementById('judgment-bar');
         const arsoBtn = document.getElementById('arso-ignite-btn');
+        const vigilantePassBtn = document.getElementById('vigilante-pass-btn');
         const wizardTools = document.getElementById('wizard-tools');
         const duyucuTools = document.getElementById('duyucu-tools');
+        const loverTools = document.getElementById('lover-tools');
+        const loverHainChatBtn = document.getElementById('lover-hain-chat-btn');
         const baskanBtn = document.getElementById('baskan-reveal-btn');
 
         const myPlayer = players.find(p => p.id === socket.id);
@@ -736,8 +1038,11 @@
         passBtn.classList.add('hidden');
         judgmentBar.classList.add('hidden');
         arsoBtn.classList.add('hidden');
+        vigilantePassBtn.classList.add('hidden');
         wizardTools.classList.add('hidden');
         duyucuTools.classList.add('hidden');
+        loverTools.classList.add('hidden');
+        loverHainChatBtn.classList.add('hidden');
         baskanBtn.classList.add('hidden');
 
         if ((phase === 'DAY' || phase === 'VOTE') && dayNumber > 1 && myRole === 'Başkan' && amIAlive && !isRevealed) {
@@ -770,6 +1075,9 @@
                 wizardTools.classList.remove('hidden');
             }
             if (myRole === 'Duyucu Hain' && amIAlive) duyucuTools.classList.remove('hidden');
+            if (isLover && amIAlive) loverTools.classList.remove('hidden');
+            if (isLover && isHain && amIAlive) loverHainChatBtn.classList.remove('hidden');
+            if (myRole === 'Vigilante' && amIAlive) vigilantePassBtn.classList.remove('hidden');
         }
 
         const grid = document.getElementById('player-grid');
@@ -781,13 +1089,14 @@
             let whisperBtnHtml = '';
             let suikastBtnHtml = '';
             let hirsizBtnHtml = '';
+            let loverProtectBtnHtml = '';
 
-            if (amIAlive) {
+            if (amIAlive || hunterStand) {
                 if (p.isAlive && !isMe && phase !== 'NIGHT') {
                     whisperBtnHtml = `<button class="card-btn btn-action-purple" onclick="handleWhisper('${p.id}')">💬 Fısılda</button>`;
                 }
 
-                if (p.isAlive && !isMe && (phase === 'DAY' || phase === 'VOTE')) {
+                if (amIAlive && p.isAlive && !isMe && (phase === 'DAY' || phase === 'VOTE')) {
                     if (myRole === 'Suikastçi' && dayNumber > 1 && !hasAssassinated) {
                         suikastBtnHtml = `<button class="card-btn btn-danger" onclick="openSuikastModal('${p.id}', '${p.username}')">🎯 Suikast Yap</button>`;
                     }
@@ -797,13 +1106,16 @@
                 }
 
                 if (p.isAlive) {
+                    if (amIAlive && isLover && phase === 'NIGHT' && p.id === loverPartnerId && !loverProtectUsed) {
+                        loverProtectBtnHtml = `<button class="card-btn btn-action-purple" onclick="handleNightAction('${p.id}', 'LOVER_PROTECT')">💗 Aşığını Koru</button>`;
+                    }
                     if (phase === 'VOTE' && !isMe) {
                         actionBtnHtml = `<button class="card-btn btn-action-yellow" onclick="handleVote('${p.id}')">🗳️ Oy Ver</button>`;
                     } else if (phase === 'NIGHT') {
-                        if (!['Düz Köylü', 'Medyum', 'Casus', 'Büyücü Hain', 'Başkan', 'Hırsız'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun)) {
+                        if (!['Düz Köylü', 'Medyum', 'Casus', 'Büyücü Hain', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun)) {
                             let btnLabel = '🎯 Eylem';
                             if (myRole === 'Doktor') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
-                            else if (['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante'].includes(myRole)) btnLabel = '🎯 Saldır';
+                            else if (['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain'].includes(myRole)) btnLabel = '🎯 Saldır';
                             else if (myRole === 'Gölge Ajanı') btnLabel = hasGun ? '🎯 Saldır' : '🌑 Rolünü Öğren';
                             else if (myRole === 'Kahin Köylü') btnLabel = '🔮 İncele';
                             else if (myRole === 'Tuzakçı Köylü') btnLabel = '🪤 Tuzak Kur';
@@ -813,8 +1125,17 @@
                             else if (myRole === 'Kundakçı') btnLabel = '🛢️ Yağla';
                             else if (myRole === 'Jester') btnLabel = '🛡️ Kalkan Aç (1 Hak)';
 
+                            if (myRole === 'Ninja Hain') {
+                                if (!isMe) {
+                                    if (hasGun) {
+                                        actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">🎯 Saldır</button>`;
+                                    }
+                                    if (!ninjaUsed) {
+                                        actionBtnHtml += `<button class="card-btn btn-action-purple" onclick="handleNightAction('${p.id}', 'NINJA')">🌑 Ninja Yeteneği</button>`;
+                                    }
+                                }
                             // Jester Kalkanı Kullanıldıysa Buton Kapansın!
-                            if (myRole === 'Jester') {
+                            } else if (myRole === 'Jester') {
                                 if (isMe && jesterShield > 0) {
                                     actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">${btnLabel}</button>`;
                                 }
@@ -826,6 +1147,10 @@
                 }
             }
 
+            if (hunterStand && phase === 'DAY' && p.isAlive && !isMe) {
+                actionBtnHtml = `<button class="card-btn btn-danger" onclick="hunterShoot('${p.id}')">🎯 Ateş Et</button>`;
+            }
+
             const isSelected = selectedTargetId === p.id;
             let roleTagHtml = '';
             const shadowRoleHtml = p.shadowRole ? `<div class="role-tag">🌑 ${p.shadowRole}</div>` : '';
@@ -834,7 +1159,7 @@
             }
 
             const isAllyTraitor = p.isAllyTraitor;
-            const nameClass = isAllyTraitor ? 'player-name text-red' : 'player-name';
+            const nameClass = isAllyTraitor ? 'player-name text-red' : (isLover && (isMe || p.id === loverPartnerId) ? 'player-name lover-name' : 'player-name');
             const allyTag = isAllyTraitor && !isMe ? `<span style="font-size:10px; color:#ef4444; font-weight:bold;">[HAİN MÜTTEFİK]</span>` : '';
             const baskanTag = p.isRevealed ? `<span style="font-size:10px; color:#eab308; font-weight:bold;">[👑 BAŞKAN]</span>` : '';
             const dousedTag = p.isDoused ? `<span style="font-size:10px; color:#f97316; font-weight:bold;">[🔥 EVİ YAĞLANDI]</span>` : '';
@@ -854,6 +1179,7 @@
                         ${actionBtnHtml}
                         ${suikastBtnHtml}
                         ${hirsizBtnHtml}
+                        ${loverProtectBtnHtml}
                         ${whisperBtnHtml}
                     </div>
                 </div>
@@ -869,14 +1195,22 @@
         });
     }
 
-    function handleNightAction(targetId) {
+    function handleNightAction(targetId, actionType) {
         const targetPlayer = latestPlayers.find(p => p.id === targetId);
-        nightAction(targetId, targetId === 'IGNITE' ? '🔥 HERKESİ YAK' : (targetPlayer ? targetPlayer.username : 'Bilinmeyen'));
+        nightAction(targetId, targetId === 'IGNITE' ? '🔥 HERKESİ YAK' : (targetPlayer ? targetPlayer.username : 'Bilinmeyen'), actionType);
+    }
+
+    function passNightAction() {
+        socket.emit('nightAction', { roomCode: currentRoomCode, actionType: 'PASS' });
     }
 
     function handleVote(targetId) {
         const targetPlayer = latestPlayers.find(p => p.id === targetId);
         castVote(targetId, targetId === 'PAS' ? 'PAS' : (targetPlayer ? targetPlayer.username : 'Bilinmeyen'));
+    }
+
+    function hunterShoot(targetId) {
+        socket.emit('hunterAction', { roomCode: currentRoomCode, targetId });
     }
 
     function handleWhisper(targetId) {
@@ -909,6 +1243,22 @@
         input.focus();
     }
 
+    function setLoverChatMode() {
+        loverChatMode = true;
+        const input = document.getElementById('chat-input');
+        input.value = '/aşıklar ';
+        input.placeholder = 'Aşık sohbetine mesaj yaz...';
+        input.focus();
+    }
+
+    function setHainChatMode() {
+        loverChatMode = false;
+        const input = document.getElementById('chat-input');
+        input.value = '/hainler ';
+        input.placeholder = 'Hain sohbetine mesaj yaz...';
+        input.focus();
+    }
+
     socket.on('phaseChangeClearTarget', () => {
         selectedTargetId = null;
         selectedTargetName = '';
@@ -932,7 +1282,9 @@
         const text = input.value.trim();
         if (!text) return;
         const isNight = document.getElementById('phase-title').innerText.includes('GECE VAKTİ');
-        const message = myRole === 'Duyucu Hain' && isNight && duyucuChatMode === 'ölüler' && !text.startsWith('/ölüler ')
+        const message = loverChatMode && isNight && !text.startsWith('/aşıklar ')
+            ? `/aşıklar ${text}`
+            : myRole === 'Duyucu Hain' && isNight && duyucuChatMode === 'ölüler' && !text.startsWith('/ölüler ')
             ? `/ölüler ${text}`
             : (myRole === 'Duyucu Hain' && isNight && duyucuChatMode === 'hainler' && !text.startsWith('/hainler ')
                 ? `/hainler ${text}` : text);
@@ -986,14 +1338,21 @@
         document.getElementById('btn-abstain')?.classList.remove('active');
     }
 
-    function nightAction(targetId, targetName) {
+    function nightAction(targetId, targetName, actionType) {
         highlightSelectedCard(targetId);
         selectedTargetName = targetName;
         document.getElementById('phase-subtext').innerText = `Gece Eylemi Hedefi: ${targetName}`;
-        socket.emit('nightAction', { roomCode: currentRoomCode, targetId });
+        socket.emit('nightAction', { roomCode: currentRoomCode, targetId, actionType });
     }
 
     socket.on('actionConfirmed', ({ targetId, targetName }) => {
+        if (!targetId) {
+            selectedTargetId = null;
+            selectedTargetName = targetName;
+            highlightSelectedCard(null);
+            document.getElementById('phase-subtext').innerText = targetName;
+            return;
+        }
         highlightSelectedCard(targetId);
         selectedTargetName = targetName;
     });
