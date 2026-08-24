@@ -777,6 +777,7 @@
         <div id="duyucu-tools" class="night-role-tools hidden">
             <button class="btn-action-purple" onclick="setDuyucuChatMode('hainler')">👹 Hainlerle Konuş</button>
             <button class="btn-action-purple" onclick="setDuyucuChatMode('ölüler')">💀 Ölülerle Konuş</button>
+            <button class="btn-action-purple hidden" id="duyucu-lover-chat-btn" onclick="setLoverChatMode()">💗 Aşığınla Konuş</button>
         </div>
         <div id="lover-tools" class="night-role-tools hidden">
             <button class="btn-action-purple" onclick="setLoverChatMode()">💗 Aşıklarla Konuş</button>
@@ -1074,6 +1075,7 @@
         const vigilantePassBtn = document.getElementById('vigilante-pass-btn');
         const wizardTools = document.getElementById('wizard-tools');
         const duyucuTools = document.getElementById('duyucu-tools');
+        const duyucuLoverChatBtn = document.getElementById('duyucu-lover-chat-btn');
         const loverTools = document.getElementById('lover-tools');
         const loverHainChatBtn = document.getElementById('lover-hain-chat-btn');
         const baskanBtn = document.getElementById('baskan-reveal-btn');
@@ -1087,6 +1089,7 @@
         vigilantePassBtn.classList.add('hidden');
         wizardTools.classList.add('hidden');
         duyucuTools.classList.add('hidden');
+        duyucuLoverChatBtn.classList.add('hidden');
         loverTools.classList.add('hidden');
         loverHainChatBtn.classList.add('hidden');
         baskanBtn.classList.add('hidden');
@@ -1120,9 +1123,12 @@
                 setupWizardTools(wizardTargets, players);
                 wizardTools.classList.remove('hidden');
             }
-            if (myRole === 'Duyucu Hain' && amIAlive) duyucuTools.classList.remove('hidden');
-            if (isLover && amIAlive) loverTools.classList.remove('hidden');
-            if (isLover && isHain && amIAlive) loverHainChatBtn.classList.remove('hidden');
+            if (myRole === 'Duyucu Hain' && amIAlive) {
+                duyucuTools.classList.remove('hidden');
+                if (isLover) duyucuLoverChatBtn.classList.remove('hidden');
+            }
+            if (isLover && amIAlive && myRole !== 'Duyucu Hain') loverTools.classList.remove('hidden');
+            if (isLover && isHain && amIAlive && myRole !== 'Duyucu Hain') loverHainChatBtn.classList.remove('hidden');
             if (myRole === 'Vigilante' && amIAlive) vigilantePassBtn.classList.remove('hidden');
         }
 
@@ -1158,10 +1164,10 @@
                     if (phase === 'VOTE' && !isMe) {
                         actionBtnHtml = `<button class="card-btn btn-action-yellow" onclick="handleVote('${p.id}')">🗳️ Oy Ver</button>`;
                     } else if (phase === 'NIGHT') {
-                        if (!['Düz Köylü', 'Medyum', 'Casus', 'Büyücü Hain', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun)) {
+                        if (!['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
                             let btnLabel = '🎯 Eylem';
                             if (myRole === 'Doktor') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
-                            else if (['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain'].includes(myRole)) btnLabel = '🎯 Saldır';
+                            else if (['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain'].includes(myRole) || (myRole === 'Büyücü Hain' && hasGun)) btnLabel = '🎯 Saldır';
                             else if (myRole === 'Gölge Ajanı') btnLabel = hasGun ? '🎯 Saldır' : '🌑 Rolünü Öğren';
                             else if (myRole === 'Kahin Köylü') btnLabel = '🔮 İncele';
                             else if (myRole === 'Tuzakçı Köylü') btnLabel = '🪤 Tuzak Kur';
@@ -1283,6 +1289,7 @@
 
     function setDuyucuChatMode(mode) {
         duyucuChatMode = mode;
+        loverChatMode = false;
         const input = document.getElementById('chat-input');
         input.value = mode === 'ölüler' ? '/ölüler ' : '';
         input.placeholder = mode === 'ölüler' ? 'Ölüler sohbetine mesaj yaz...' : 'Hainler sohbetine mesaj yaz...';
@@ -1291,6 +1298,7 @@
 
     function setLoverChatMode() {
         loverChatMode = true;
+        duyucuChatMode = '';
         const input = document.getElementById('chat-input');
         input.value = '/aşıklar ';
         input.placeholder = 'Aşık sohbetine mesaj yaz...';

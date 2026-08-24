@@ -680,6 +680,9 @@ io.on('connection', (socket) => {
             }
             if (['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Avcı Köylü'].includes(actor.role)) return;
             if (actor.role === 'Hırsız') return socket.emit('errorMsg', 'Hırsız gece eylemi yapamaz!');
+            if (actor.role === 'Büyücü Hain' && !actor.hasGun) {
+                return socket.emit('errorMsg', 'Silahın yoksa Büyücü Hain olarak saldırı yapamazsın; büyü gücünü kullanmalısın!');
+            }
             if (actor.role === 'Suikastçi' && !actor.hasGun) {
                 return socket.emit('errorMsg', 'Silahın yoksa gece eylemi yapamazsın!');
             }
