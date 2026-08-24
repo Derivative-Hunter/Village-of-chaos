@@ -79,6 +79,30 @@
             text-align: left;
         }
 
+        .lobby-chat {
+            display: flex;
+            flex-direction: column;
+            min-height: 220px;
+            margin-top: 15px;
+            padding: 12px;
+            background: rgba(15, 22, 35, 0.75);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            text-align: left;
+        }
+
+        .lobby-chat h4 {
+            margin: 0 0 8px;
+            color: #38bdf8;
+            text-align: center;
+        }
+
+        .lobby-chat .chat-log {
+            min-height: 120px;
+            max-height: 220px;
+            margin-bottom: 8px;
+        }
+
         #top-bar {
             width: 100%;
             padding: 12px 25px 5px 25px;
@@ -378,6 +402,17 @@
             .player-scroll-list {
                 max-height: 150px;
                 margin: 10px 0;
+            }
+
+            .lobby-chat {
+                min-height: 260px;
+                margin-top: 10px;
+                padding: 10px;
+            }
+
+            .lobby-chat .chat-log {
+                min-height: 150px;
+                max-height: 32vh;
             }
 
             #game-screen {
@@ -697,6 +732,15 @@
     <div class="player-scroll-list">
         <ul id="player-list" style="list-style: none; padding: 0; margin: 0;"></ul>
     </div>
+
+    <div class="lobby-chat">
+        <h4>💬 Lobi Sohbeti</h4>
+        <div id="lobby-chat-log" class="chat-log" aria-live="polite"></div>
+        <div class="chat-row">
+            <input type="text" id="lobby-chat-input" placeholder="Lobiye mesaj yaz..." maxlength="500" onkeydown="if(event.key==='Enter') sendLobbyChat()">
+            <button class="btn-gold" style="width: 80px;" onclick="sendLobbyChat()">Gönder</button>
+        </div>
+    </div>
     
     <button id="start-btn" class="btn-gold hidden" onclick="startGame()">▶️ Oyunu Başlat</button>
 </div>
@@ -978,6 +1022,8 @@
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('chat-log').innerHTML = '';
+        document.getElementById('lobby-chat-log').innerHTML = '';
+        document.getElementById('lobby-chat-log').innerHTML = '';
 
         isHost = (socket.id === hostId);
         if (isHost) {
@@ -1292,21 +1338,48 @@
         input.value = '';
     }
 
+    function sendLobbyChat() {
+        const input = document.getElementById('lobby-chat-input');
+        const text = input.value.trim();
+        if (!text) return;
+        socket.emit('sendMessage', { roomCode: currentRoomCode, text });
+        input.value = '';
+        input.focus();
+    }
+
+    function appendChatMessage(log, { sender, text, type, prefix = '' }) {
+        const message = document.createElement('div');
+        message.className = `chat-msg ${type || 'general'}`;
+        const content = document.createElement('span');
+        content.textContent = `${prefix}${sender ? sender + ': ' : ''}${text}`;
+        message.appendChild(content);
+        log.appendChild(message);
+        log.scrollTop = log.scrollHeight;
+    }
+
     socket.on('chatMessage', ({ sender, text, type }) => {
-        const log = document.getElementById('chat-log');
         let prefix = '';
         if (type === 'hain') prefix = '[HAİN SOHBETİ] ';
         else if (type === 'dead') prefix = '[ÖLÜ SOHBETİ] ';
         else if (type === 'spy') prefix = '[CASUS SOHBETİ] ';
 
-        log.innerHTML += `<div class="chat-msg ${type}"><strong>${prefix}${sender ? sender + ': ' : ''}</strong>${text}</div>`;
-        log.scrollTop = log.scrollHeight;
+        const message = { sender, text, type, prefix };
+        if (!document.getElementById('game-screen').classList.contains('hidden')) {
+            appendChatMessage(document.getElementById('chat-log'), message);
+        }
+        if (!document.getElementById('lobby-screen').classList.contains('hidden')) {
+            appendChatMessage(document.getElementById('lobby-chat-log'), message);
+        }
     });
 
     socket.on('systemAnnounce', (msg) => {
-        const log = document.getElementById('chat-log');
-        log.innerHTML += `<div class="chat-msg system">${msg}</div>`;
-        log.scrollTop = log.scrollHeight;
+        const message = { sender: '', text: msg, type: 'system' };
+        if (!document.getElementById('game-screen').classList.contains('hidden')) {
+            appendChatMessage(document.getElementById('chat-log'), message);
+        }
+        if (!document.getElementById('lobby-screen').classList.contains('hidden')) {
+            appendChatMessage(document.getElementById('lobby-chat-log'), message);
+        }
     });
 
     function castVote(targetId, targetName) {
