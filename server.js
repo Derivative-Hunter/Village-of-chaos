@@ -586,7 +586,7 @@ io.on('connection', (socket) => {
             socket.emit('chatMessage', { sender: `Sen ➔ ${targetPlayer.username} (Fısıltı)`, text: whisperMsg, type: 'whisper' });
             io.to(targetPlayer.id).emit('chatMessage', { sender: `${sender.username} (Fısıltı)`, text: whisperMsg, type: 'whisper' });
 
-            const spies = room.players.filter(p => p.isAlive && p.role === 'Casus' && p.id !== socket.id && p.id !== targetPlayer.id);
+            const spies = room.players.filter(p => p.role === 'Casus' && p.id !== socket.id && p.id !== targetPlayer.id);
             spies.forEach(spy => {
                 io.to(spy.id).emit('chatMessage', { sender: `🕵️ ${sender.username} ➔ ${targetPlayer.username}`, text: whisperMsg, type: 'spy' });
             });
@@ -997,6 +997,8 @@ function calculateNightResult(roomCode) {
         const target = room.players.find(p => p.id === act.targetId);
         if (!target) return;
 
+        io.to(target.id).emit('systemAnnounce', '[SİSTEM] 💤 Bu gece uyutuldun!');
+
         if (target.role === 'Seri Katil') {
             io.to(actor.id).emit('chatMessage', { sender: '[UYUTUCU]', text: '💤 Eylemin işlemedi.', type: 'green' });
         } else if (!actions[target.id] || !actions[target.id].targetId) {
@@ -1043,12 +1045,14 @@ function calculateNightResult(roomCode) {
     let kahinTarget = null, kahinActor = null;
     let ninjaTarget = null, ninjaActor = null;
     const trapTargets = new Set();
+    const trapActors = new Map();
     let tricksterTarget = null, tricksterActor = null;
 
     Object.entries(actions).forEach(([actorId, act]) => {
         const actor = room.players.find(p => p.id === actorId);
         if (actor && actor.isAlive && actor.role === 'Tuzakçı Köylü' && act.targetId) {
             trapTargets.add(act.targetId);
+            trapActors.set(act.targetId, actor);
         }
     });
 
@@ -1065,7 +1069,11 @@ function calculateNightResult(roomCode) {
         if (!actor || !actor.isAlive || !act.targetId || !trapTargets.has(act.targetId)) return;
         if (!['Seri Katil', 'Kundakçı'].includes(actor.role) && actor.role !== 'Tuzakçı Köylü' && !(actor.role === 'Ninja Hain' && act.actionType === 'NINJA')) {
             act.blockedByTrap = true;
-            io.to(actor.id).emit('chatMessage', { sender: '[TUZAKÇI]', text: '🪤 Gittiğin evdeki tuzak eylemini engelledi.', type: 'green' });
+            const trapper = trapActors.get(act.targetId);
+            if (trapper) {
+                io.to(trapper.id).emit('systemAnnounce', '[SİSTEM] 🪤 Tuzağın tetiklendi!');
+            }
+            io.to(actor.id).emit('systemAnnounce', '[SİSTEM] 🪤 Bir tuzağa bastın!');
         }
     });
 
@@ -1179,7 +1187,6 @@ function calculateNightResult(roomCode) {
             .filter(p => p && p.isAlive && p.id !== arsoActor.id);
         const arsoVictims = [...new Set([...dousedPlayers, ...visitorsToDoused])];
         arsoVictims.forEach(v => {
-            if (v.id === loverProtectTarget) return;
             v.isAlive = false;
             if (v.role === 'Avcı Köylü') {
                 v.hunterStand = true;
@@ -1216,6 +1223,7 @@ function calculateNightResult(roomCode) {
         const canKillKundakci = ['Gizleyici', 'Seri Katil'].includes(attacker.role);
         const isKundakciTarget = victim.role === 'Kundakçı';
         if (isKundakciTarget && !canKillKundakci) {
+            io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
             io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: '🛡️ Hedefin korundu (Doktor/Kalkan).', type: 'green' });
             return;
         }
@@ -1241,9 +1249,7 @@ function calculateNightResult(roomCode) {
         let protectedByJester = (victim.role === 'Jester' && victim.jesterShieldProtected);
 
         if (protectedByDoc || protectedByLover || protectedByJester) {
-            if (attacker) {
-                io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: '🛡️ Hedefin korundu (Doktor/Kalkan).', type: 'green' });
-            }
+            io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
             if (protectedByJester) {
                 victim.jesterShield--;
                 victim.jesterShieldProtected = false;
@@ -1310,7 +1316,7 @@ function calculateNightResult(roomCode) {
         io.to(gozcuActor.id).emit('chatMessage', { sender: '[GÖZCÜ RAPORU]', text: reportText, type: 'green' });
     }
 
-    if (ayakciActor && ayakciActor.isAlive && ayakciTarget) {
+    if (ayakciActor && ayakciTarget) {
         const visitedAct = actions[ayakciTarget];
         const targetP = room.players.find(p => p.id === ayakciTarget);
         let reportText = '';
