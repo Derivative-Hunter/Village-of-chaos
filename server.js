@@ -897,6 +897,22 @@ function evaluateVoteResult(roomCode) {
         }
     });
 
+    if (selectedTarget && selectedTarget !== 'PAS' && !tie) {
+        const defendant = room.players.find(p => p.id === selectedTarget);
+        if (defendant) {
+            io.to(roomCode).emit('systemAnnounce', `[SİSTEM] 🗳️ ${defendant.username} ${maxVotes} oy ile kürsüye alındı.`);
+        }
+    } else if (selectedTarget === 'PAS' && !tie) {
+        io.to(roomCode).emit('systemAnnounce', `[SİSTEM] 🗳️ ${voteCounts.PAS || 0} oy ile pas geçildi.`);
+    } else if (tie) {
+        const tiedTargets = Object.entries(voteCounts)
+            .filter(([, count]) => count === maxVotes)
+            .map(([targetId]) => targetId === 'PAS' ? 'PAS' : room.players.find(p => p.id === targetId)?.username || 'Bilinmeyen');
+        io.to(roomCode).emit('systemAnnounce', `[SİSTEM] 🗳️ Oylama berabere kaldı (${tiedTargets.join(', ')}: ${maxVotes} oy). Pas geçildi.`);
+    } else {
+        io.to(roomCode).emit('systemAnnounce', '[SİSTEM] 🗳️ 0 oy ile pas geçildi.');
+    }
+
     if (!selectedTarget || selectedTarget === 'PAS' || tie || maxVotes === 0) {
         if (checkHainKoyluBeforeNight(roomCode)) return;
         io.to(roomCode).emit('systemAnnounce', '[SİSTEM] Yeterli çoğunluk sağlanamadı / Geçildi. Geceye geçiliyor.');
@@ -918,8 +934,10 @@ function evaluateJudgmentResult(roomCode) {
     const room = rooms[roomCode];
     const guiltyList = [];
     const innocentList = [];
+    const abstainList = [];
     let guiltyVotes = 0;
     let innocentVotes = 0;
+    let abstainVotes = 0;
 
     const eligibleVoters = room.players.filter(p => p.isAlive && p.id !== room.defendantId);
 
@@ -932,8 +950,16 @@ function evaluateJudgmentResult(roomCode) {
         } else if (verdict === 'INNOCENT') {
             innocentList.push(voter.username);
             innocentVotes += weight;
+        } else if (verdict === 'ABSTAIN') {
+            abstainList.push(voter.username);
+            abstainVotes += weight;
         }
     });
+
+    const formatVoterList = voters => voters.length > 0 ? `${voters.join(', ')} kişisi` : 'Kimse';
+    io.to(roomCode).emit('systemAnnounce', `[${guiltyVotes}] Suçlu: ${formatVoterList(guiltyList)}`);
+    io.to(roomCode).emit('systemAnnounce', `[${innocentVotes}] Suçsuz: ${formatVoterList(innocentList)}`);
+    io.to(roomCode).emit('systemAnnounce', `[${abstainVotes}] Pas: ${formatVoterList(abstainList)}`);
 
     const defendant = room.players.find(p => p.id === room.defendantId);
 
@@ -1301,7 +1327,7 @@ function calculateNightResult(roomCode) {
         });
     }
 
-    if (gozcuActor && gozcuActor.isAlive && gozcuTarget) {
+    if (gozcuActor && gozcuTarget) {
         const visitors = Object.entries(actions)
             .filter(([aId, act]) => act.targetId === gozcuTarget && !act.noVisit && aId !== gozcuActor.id)
             .map(([aId]) => room.players.find(p => p.id === aId))
@@ -1331,7 +1357,7 @@ function calculateNightResult(roomCode) {
         io.to(ayakciActor.id).emit('chatMessage', { sender: '[AYAKÇI RAPORU]', text: reportText, type: 'green' });
     }
 
-    if (shadowActor && shadowActor.isAlive && shadowTarget) {
+    if (shadowActor && shadowTarget) {
         const target = room.players.find(p => p.id === shadowTarget);
         if (target) {
             shadowActor.shadowRole = { targetId: target.id, role: target.role };
@@ -1339,7 +1365,7 @@ function calculateNightResult(roomCode) {
         }
     }
 
-    if (kahinActor && kahinActor.isAlive && kahinTarget) {
+    if (kahinActor && kahinTarget) {
         const target = room.players.find(p => p.id === kahinTarget);
         const visitorRoles = Object.entries(actions)
             .filter(([actorId, act]) => act.targetId === kahinTarget && !act.noVisit && actorId !== kahinActor.id)
