@@ -1191,14 +1191,22 @@ function calculateNightResult(roomCode) {
         });
     }
 
-    function getAttackPriority(player) {
-        if (!player) return 0;
-        if (player.role === 'Kundakçı') return 4;
-        if (player.role === 'Seri Katil') return 3;
-        if (ALL_HAIN_ROLES.includes(player.role)) return 2;
-        if (player.role === 'Vigilante') return 1;
-        return 0;
-    }
+    const serialKiller = room.players.find(p => p.role === 'Seri Katil');
+    const isArmedHain = player => Boolean(player && player.hasGun && ALL_HAIN_ROLES.includes(player.role));
+    const isMutualSerialKillerHainAttack = Boolean(
+        serialKiller &&
+        hainActor &&
+        isArmedHain(hainActor) &&
+        skTarget === hainActor.id &&
+        hainTarget === serialKiller.id
+    );
+    const isMutualIgniteAttackOnArsonist = Boolean(
+        arsoIgnite &&
+        arsoActor &&
+        ((serialKiller && skTarget === arsoActor.id) ||
+            (hainActor && isArmedHain(hainActor) && hainTarget === arsoActor.id) ||
+            (vigActor && vigTarget === arsoActor.id))
+    );
 
     function processAttack(attacker, targetId, killerName) {
         if (!attacker || !attacker.isAlive || !targetId) return;
@@ -1212,9 +1220,16 @@ function calculateNightResult(roomCode) {
             return;
         }
 
-        const attackerPriority = getAttackPriority(attacker);
-        const victimPriority = getAttackPriority(victim);
-        if (!(isKundakciTarget && canKillKundakci) && victimPriority > attackerPriority && victimPriority > 0 && attackerPriority > 0) {
+        if (isMutualIgniteAttackOnArsonist && victim.id === arsoActor.id) {
+            if (attacker.role === 'Gizleyici' || attacker.role === 'Seri Katil') {
+                attacker.isAlive = false;
+                killedList.push({ player: attacker, killer: victim.role, hiddenRole: false });
+                checkGunPass(room, attacker);
+            }
+            return;
+        }
+
+        if (isMutualSerialKillerHainAttack && attacker.id === hainActor.id && victim.id === serialKiller.id) {
             attacker.isAlive = false;
             killedList.push({ player: attacker, killer: victim.role, hiddenRole: false });
             checkGunPass(room, attacker);
