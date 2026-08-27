@@ -59,6 +59,10 @@
         .setting-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
         .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
         .setting-item input { width: 60px; text-align: center; padding: 6px; margin: 0; }
+        .bot-setting { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .bot-counter { display: flex; align-items: center; gap: 5px; }
+        .bot-counter button { width: 34px; min-height: 34px; padding: 4px; margin: 0; }
+        .bot-counter input { width: 48px; margin: 0; padding: 6px; text-align: center; }
         .role-category { grid-column: span 2; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 9px 10px; margin-top: 3px; }
         .role-category h5 { margin: 0 0 7px; font-size: 12px; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.4px; }
         .role-category.town h5 { color: #38bdf8; }
@@ -754,6 +758,14 @@
     <div class="player-scroll-list">
         <ul id="player-list" style="list-style: none; padding: 0; margin: 0;"></ul>
     </div>
+    <div id="bot-setting" class="settings-box bot-setting">
+        <label for="cfg-bots">🤖 Bot Sayısı</label>
+        <div class="bot-counter">
+            <button type="button" onclick="adjustBotCount(-1)" aria-label="Bot azalt">−</button>
+            <input type="number" id="cfg-bots" value="0" min="0" max="20" onchange="emitSettings()">
+            <button type="button" onclick="adjustBotCount(1)" aria-label="Bot artır">+</button>
+        </div>
+    </div>
 
     <div class="lobby-chat">
         <h4>💬 Lobi Sohbeti</h4>
@@ -992,7 +1004,8 @@
             defenseTime: parseInt(document.getElementById('cfg-defense').value) || 15,
             judgmentTime: parseInt(document.getElementById('cfg-judgment').value) || 15,
             nightTime: parseInt(document.getElementById('cfg-night').value) || 15,
-            asikCount: parseInt(document.getElementById('cfg-asik').value) || 0
+            asikCount: parseInt(document.getElementById('cfg-asik').value) || 0,
+            botCount: parseInt(document.getElementById('cfg-bots').value) || 0
         };
         socket.emit('updateSettings', { roomCode: currentRoomCode, settings });
     }
@@ -1015,15 +1028,24 @@
         document.getElementById('cfg-judgment').value = settings.judgmentTime;
         document.getElementById('cfg-night').value = settings.nightTime;
         document.getElementById('cfg-asik').value = settings.asikCount ?? 0;
+        document.getElementById('cfg-bots').value = settings.botCount ?? 0;
     }
 
     function setInputsDisabled(disabled) {
-        const ids = ['cfg-koruma-koylusu', 'cfg-silahli-koylu', 'cfg-arastirmaci-koylu', 'cfg-asik', 'cfg-silahli-hain', 'cfg-destekci-hain', 'cfg-hain-koylu', 'cfg-silahli-tarafsiz', 'cfg-normal-tarafsiz', 'cfg-day', 'cfg-vote', 'cfg-defense', 'cfg-judgment', 'cfg-night'];
+        const ids = ['cfg-koruma-koylusu', 'cfg-silahli-koylu', 'cfg-arastirmaci-koylu', 'cfg-asik', 'cfg-silahli-hain', 'cfg-destekci-hain', 'cfg-hain-koylu', 'cfg-silahli-tarafsiz', 'cfg-normal-tarafsiz', 'cfg-day', 'cfg-vote', 'cfg-defense', 'cfg-judgment', 'cfg-night', 'cfg-bots'];
         ids.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.disabled = disabled;
         });
         document.querySelectorAll('#normal-role-counters input').forEach(input => input.disabled = disabled);
+        document.getElementById('bot-setting')?.classList.toggle('hidden', disabled);
+    }
+
+    function adjustBotCount(amount) {
+        if (!isHost) return;
+        const input = document.getElementById('cfg-bots');
+        input.value = Math.min(20, Math.max(0, (parseInt(input.value) || 0) + amount));
+        emitSettings();
     }
 
     function openRoleModal() { document.getElementById('role-modal').classList.remove('hidden'); }

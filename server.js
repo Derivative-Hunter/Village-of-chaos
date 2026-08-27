@@ -49,6 +49,42 @@ const CONFIGURABLE_ROLE_NAMES = [
 const isHainKoyluPlayer = player => Boolean(player && player.isHain && !ALL_HAIN_ROLES.includes(player.role));
 const getDeadRoleLabel = player => isHainKoyluPlayer(player) ? `Hain ${player.role}` : player.role;
 
+function createBotPlayer(index) {
+    return {
+        id: `bot-${index}`,
+        username: `bot ${index}`,
+        isBot: true,
+        isHost: false,
+        role: null,
+        isAlive: true,
+        hasGun: false,
+        ammo: 0,
+        jesterShield: 1,
+        isRevealed: false,
+        isDoused: false,
+        hasStolen: false,
+        hasAssassinated: false,
+        isHain: false,
+        shadowRole: null,
+        roleHidden: false,
+        hunterStand: false,
+        hunterStandUsed: false,
+        ninjaUsed: false,
+        isLover: false,
+        loverPartnerId: null,
+        loverProtectUsed: false
+    };
+}
+
+function syncRoomBots(room, requestedCount) {
+    const count = Math.min(Math.max(0, parseInt(requestedCount) || 0), 20);
+    room.players = room.players.filter(player => !player.isBot || Number(player.id.slice(4)) <= count);
+    const existingBotIds = new Set(room.players.filter(player => player.isBot).map(player => player.id));
+    for (let index = 1; index <= count; index++) {
+        if (!existingBotIds.has(`bot-${index}`)) room.players.push(createBotPlayer(index));
+    }
+}
+
 function createRoomCode() {
     return Math.random().toString(36).substring(2, 7).toUpperCase();
 }
@@ -250,7 +286,8 @@ io.on('connection', (socket) => {
                 defenseTime: 15,
                 judgmentTime: 15,
                 nightTime: 15,
-                asikCount: 0
+                asikCount: 0,
+                botCount: 0
             }
         };
 
@@ -390,8 +427,9 @@ io.on('connection', (socket) => {
         if (!room) return socket.emit('errorMsg', 'Oda bulunamadı!');
         if (room.hostId !== socket.id) return socket.emit('errorMsg', 'Sadece oda kurucusu oyunu başlatabilir!');
 
-        const totalPlayers = room.players.length;
         const cfg = room.settings;
+        syncRoomBots(room, cfg.botCount);
+        const totalPlayers = room.players.length;
 
         const shuffled = shuffle([...room.players]);
         let idx = 0;
@@ -422,7 +460,7 @@ io.on('connection', (socket) => {
         assignGuns(room);
 
         room.players.forEach(p => {
-            io.to(p.id).emit('yourRole', { role: p.role, isHain: p.isHain });
+            if (!p.isBot) io.to(p.id).emit('yourRole', { role: p.role, isHain: p.isHain });
         });
 
         room.dayNumber = 1;
@@ -864,6 +902,64 @@ function nextPhase(roomCode) {
     }
 }
 
+function addBotNightActions(room) {
+    const alivePlayers = room.players.filter(player => player.isAlive);
+    const chooseTarget = bot => {
+        const targets = alivePlayers.filter(player => player.id !== bot.id);
+        return targets.length > 0 ? targets[Math.floor(Math.random() * targets.length)] : null;
+    };
+
+    room.players.filter(player => player.isBot && player.isAlive).forEach(bot => {
+        let target = null;
+        let actionType;
+
+        if (bot.role === 'Büyücü Hain' && !bot.hasGun) {
+            const controlled = alivePlayers.find(player =>
+                player.id !== bot.id && !isHainPlayer(player) && player.role !== 'Kundakçı'
+            );
+            target = chooseTarget(bot);
+            if (controlled && target && target.id !== controlled.id) {
+                room.nightActions[bot.id] = {
+                    role: bot.role,
+                    actionType: 'WIZARD',
+                    targetId: target.id,
+                    controlledId: controlled.id,
+                    controlledRole: controlled.role
+                };
+                return;
+            }
+        } else if (bot.role === 'Jester') {
+            target = bot;
+        } else if (bot.role === 'Kundakçı') {
+            const doused = alivePlayers.find(player => player.isDoused && player.id !== bot.id);
+            target = doused ? { id: 'IGNITE' } : chooseTarget(bot);
+        } else if (bot.role === 'Ninja Hain' && !bot.ninjaUsed) {
+            target = chooseTarget(bot);
+            actionType = 'NINJA';
+            bot.ninjaUsed = true;
+        } else if (bot.role === 'Doktor' || bot.role === 'Uyutucu' || bot.role === 'Tuzakçı Köylü' ||
+            bot.role === 'Gözcü' || bot.role === 'Ayakçı' || bot.role === 'Kahin Köylü' ||
+            bot.role === 'Gölge Ajanı' || bot.role === 'Düzenbaz Köylü') {
+            target = chooseTarget(bot);
+        } else if (bot.role === 'Vigilante' && bot.ammo > 0) {
+            target = chooseTarget(bot);
+        } else if (bot.role === 'Seri Katil' ||
+            (bot.hasGun && ALL_HAIN_ROLES.includes(bot.role))) {
+            target = chooseTarget(bot);
+        } else if (bot.role === 'Susturucu' || bot.role === 'Jester') {
+            target = chooseTarget(bot);
+        }
+
+        if (!target) return;
+        if (bot.role === 'Kundakçı' && target.id === 'IGNITE') {
+            room.nightActions[bot.id] = { role: bot.role, targetId: 'IGNITE' };
+        } else {
+            room.nightActions[bot.id] = { role: bot.role, targetId: target.id, actionType };
+        }
+        if (bot.role === 'Vigilante') bot.ammo--;
+    });
+}
+
 function startVotePhase(roomCode) {
     const room = rooms[roomCode];
     room.votes = {};
@@ -939,7 +1035,7 @@ function evaluateJudgmentResult(roomCode) {
     let innocentVotes = 0;
     let abstainVotes = 0;
 
-    const eligibleVoters = room.players.filter(p => p.isAlive && p.id !== room.defendantId);
+    const eligibleVoters = room.players.filter(p => p.isAlive && !p.isBot && p.id !== room.defendantId);
 
     eligibleVoters.forEach(voter => {
         const verdict = room.judgmentVotes[voter.id];
@@ -1003,6 +1099,7 @@ function goToNight(roomCode) {
     room.players.forEach(player => {
         player.shadowRole = null;
     });
+    addBotNightActions(room);
     room.defendantId = null;
     io.to(roomCode).emit('phaseChangeClearTarget');
     io.to(roomCode).emit('systemAnnounce', '[SİSTEM] 🌙 Gece çöktü...');
