@@ -102,6 +102,9 @@
             max-height: 220px;
             margin-bottom: 8px;
         }
+        .lobby-chat-workspace { display: flex; gap: 8px; min-height: 0; }
+        .lobby-chat-workspace .chat-log { flex: 1; min-width: 0; }
+        .lobby-notes-panel { width: 145px; display: flex; flex: 0 0 145px; flex-direction: column; gap: 6px; }
 
         #top-bar {
             width: 100%;
@@ -423,6 +426,9 @@
                 min-height: 150px;
                 max-height: 32vh;
             }
+
+            .lobby-chat-workspace { flex-direction: column; }
+            .lobby-notes-panel { width: 100%; flex-basis: auto; }
 
             #game-screen {
                 width: 100%;
@@ -751,7 +757,19 @@
 
     <div class="lobby-chat">
         <h4>💬 Lobi Sohbeti</h4>
-        <div id="lobby-chat-log" class="chat-log" aria-live="polite"></div>
+        <div class="chat-filters" role="toolbar" aria-label="Sohbet filtreleri">
+            <button class="chat-filter-btn" data-chat-filter="system" onclick="setChatFilter('system')">Sistem Bilgileri</button>
+            <button class="chat-filter-btn" data-chat-filter="role" onclick="setChatFilter('role')">Rol Bilgileri</button>
+            <button class="chat-filter-btn" data-chat-filter="chat" onclick="setChatFilter('chat')">Sadece Sohbet</button>
+            <button class="chat-filter-btn active" data-chat-filter="all" onclick="setChatFilter('all')">Hepsi</button>
+        </div>
+        <div class="lobby-chat-workspace">
+            <div id="lobby-chat-log" class="chat-log" aria-live="polite"></div>
+            <div class="lobby-notes-panel">
+                <button id="lobby-notes-toggle" class="notes-toggle" onclick="toggleNotes('lobby')" aria-expanded="false">📝 Not Defterini Aç</button>
+                <textarea id="lobby-notes-area" class="notes-area hidden" placeholder="Notlarını buraya yaz..." aria-label="Özel not defteri"></textarea>
+            </div>
+        </div>
         <div class="chat-row">
             <input type="text" id="lobby-chat-input" placeholder="Lobiye mesaj yaz..." maxlength="500" onkeydown="if(event.key==='Enter') sendLobbyChat()">
             <button class="btn-gold" style="width: 80px;" onclick="sendLobbyChat()">Gönder</button>
@@ -1039,6 +1057,7 @@
         document.getElementById('host-tag').innerText = '(Kurucu)';
         setInputsDisabled(false);
         applySettingsToInputs(settings);
+        loadNotes();
     });
 
     socket.on('joinedRoom', ({ roomCode, settings }) => {
@@ -1048,6 +1067,7 @@
         document.getElementById('host-tag').innerText = '(Kurucu Ayarlıyor)';
         setInputsDisabled(true);
         applySettingsToInputs(settings);
+        loadNotes();
     });
 
     socket.on('returnedToLobby', ({ settings, hostId }) => {
@@ -1399,7 +1419,8 @@
     }
 
     function renderChatHistory() {
-        const log = document.getElementById('chat-log');
+        const gameVisible = !document.getElementById('game-screen').classList.contains('hidden');
+        const log = document.getElementById(gameVisible ? 'chat-log' : 'lobby-chat-log');
         if (!log) return;
         log.innerHTML = '';
         chatHistory
@@ -1413,9 +1434,14 @@
         renderChatHistory();
     }
 
-    function toggleNotes() {
-        const notes = document.getElementById('notes-area');
-        const toggle = document.getElementById('notes-toggle');
+    function toggleNotes(location = 'game') {
+        toggleNotesAt(location);
+    }
+
+    function toggleNotesAt(location) {
+        const prefix = location === 'lobby' ? 'lobby-' : '';
+        const notes = document.getElementById(`${prefix}notes-area`);
+        const toggle = document.getElementById(`${prefix}notes-toggle`);
         const isOpen = notes.classList.toggle('hidden') === false;
         toggle.setAttribute('aria-expanded', String(isOpen));
         toggle.innerText = isOpen ? '📝 Not Defterini Kapat' : '📝 Not Defterini Aç';
@@ -1428,15 +1454,19 @@
 
     function loadNotes() {
         const notes = document.getElementById('notes-area');
-        if (notes) notes.value = localStorage.getItem(getNotesStorageKey()) || '';
+        const lobbyNotes = document.getElementById('lobby-notes-area');
+        const savedNotes = localStorage.getItem(getNotesStorageKey()) || '';
+        if (notes) notes.value = savedNotes;
+        if (lobbyNotes) lobbyNotes.value = savedNotes;
     }
 
-    function saveNotes() {
-        const notes = document.getElementById('notes-area');
+    function saveNotes(event) {
+        const notes = event.currentTarget;
         if (notes) localStorage.setItem(getNotesStorageKey(), notes.value);
     }
 
     document.getElementById('notes-area').addEventListener('input', saveNotes);
+    document.getElementById('lobby-notes-area').addEventListener('input', saveNotes);
 
     function appendChatMessage(log, { sender, text, type, prefix = '' }) {
         const message = document.createElement('div');
@@ -1455,22 +1485,12 @@
         else if (type === 'spy') prefix = '[CASUS SOHBETİ] ';
 
         const message = { sender, text, type, prefix, filter: type === 'green' ? 'role' : 'chat' };
-        if (!document.getElementById('game-screen').classList.contains('hidden')) {
-            addGameChatMessage(message);
-        }
-        if (!document.getElementById('lobby-screen').classList.contains('hidden')) {
-            appendChatMessage(document.getElementById('lobby-chat-log'), message);
-        }
+        addGameChatMessage(message);
     });
 
     socket.on('systemAnnounce', (msg) => {
         const message = { sender: '', text: msg, type: 'system', filter: 'system' };
-        if (!document.getElementById('game-screen').classList.contains('hidden')) {
-            addGameChatMessage(message);
-        }
-        if (!document.getElementById('lobby-screen').classList.contains('hidden')) {
-            appendChatMessage(document.getElementById('lobby-chat-log'), message);
-        }
+        addGameChatMessage(message);
     });
 
     function castVote(targetId, targetName) {
