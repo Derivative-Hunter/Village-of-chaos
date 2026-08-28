@@ -951,6 +951,18 @@
 </div>
 
 <script>
+    let touchStartPageY = 0;
+    document.addEventListener('touchstart', function(e) {
+        touchStartPageY = e.touches[0].pageY;
+    }, { passive: false });
+
+    document.addEventListener('touchmove', function(e) {
+        const touchMovePageY = e.touches[0].pageY;
+        if (document.documentElement.scrollTop === 0 && touchMovePageY > touchStartPageY) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+
     const socket = io();
     let currentRoomCode = '';
     let myRole = '';
