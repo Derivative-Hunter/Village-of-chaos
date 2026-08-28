@@ -7,13 +7,13 @@
     <script src="/socket.io/socket.io.js"></script>
     <style>
         html {
-            overscroll-behavior-y: contain;
+            overscroll-behavior-y: none;
         }
 
         * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         
         body { 
-            overscroll-behavior-y: contain;
+            overscroll-behavior-y: none;
             background: radial-gradient(circle at 50% 30%, #172338 0%, #080d17 100%); 
             color: #f1f5f9; 
             margin: 0; 
@@ -951,18 +951,6 @@
 </div>
 
 <script>
-    let touchStartPageY = 0;
-    document.addEventListener('touchstart', function(e) {
-        touchStartPageY = e.touches[0].pageY;
-    }, { passive: false });
-
-    document.addEventListener('touchmove', function(e) {
-        const touchMovePageY = e.touches[0].pageY;
-        if (document.documentElement.scrollTop === 0 && touchMovePageY > touchStartPageY) {
-            e.preventDefault();
-        }
-    }, { passive: false });
-
     const socket = io();
     let currentRoomCode = '';
     let myRole = '';
