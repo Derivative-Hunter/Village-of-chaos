@@ -58,26 +58,6 @@ function emitRoleActionMessage(actor, text) {
     io.to(actor.id).emit('chatMessage', { sender: `[${(actor.role || 'ROL').toUpperCase()}]`, text, type: 'green' });
 }
 
-function emitNightActionConfirmation(actor, actionType, targetName) {
-    if (!actor || !actor.id) return;
-    const roleName = actor.role || 'Rol';
-    let text = `${roleName} gece eylemini kaydetti.`;
-    if (actionType === 'WIZARD') {
-        text = `${roleName} gücünü ${targetName || 'hedef'} üzerine yöneltti.`;
-    } else if (actionType === 'LOVER_PROTECT') {
-        text = `${roleName} aşığını koruma eylemini ayarladı.`;
-    } else if (actionType === 'NINJA') {
-        text = `${roleName} ninja hamlesini hazırladı.`;
-    } else if (actionType === 'IGNITE') {
-        text = `${roleName} yakma eylemini başlattı.`;
-    } else if (actor.role === 'Tuzakçı Köylü') {
-        text = `${roleName} tuzağını kurdu.`;
-    } else if (actor.role === 'Vigilante') {
-        text = `${roleName} hedefini seçti ve atışına hazırlandı.`;
-    }
-    io.to(actor.id).emit('chatMessage', { sender: '[GECE EYLEMİ]', text, type: 'green' });
-}
-
 function canUseAdditionalNightAction(actor, requestedActionType, existingNightAction) {
     if (!actor || !actor.isLover) return true;
     if (!existingNightAction || !existingNightAction.actionType || existingNightAction.actionType === 'PASS') return true;
@@ -791,7 +771,6 @@ io.on('connection', (socket) => {
 
             const targetPlayer = room.players.find(p => p.id === targetId);
             const targetName = targetId === 'IGNITE' ? '🔥 HERKESİ YAK' : (targetPlayer ? targetPlayer.username : 'Bilinmeyen');
-            emitNightActionConfirmation(actor, actionType, targetName);
             socket.emit('actionConfirmed', { targetId, targetName });
         }
     });
@@ -816,7 +795,6 @@ io.on('connection', (socket) => {
         }
 
         room.nightActions[socket.id] = { role: actor.role, actionType: 'WIZARD', targetId, controlledId: controlled.id, controlledRole: controlled.role };
-        emitNightActionConfirmation(actor, 'WIZARD', target.username);
         socket.emit('actionConfirmed', { targetId, targetName: target.username });
     });
 
