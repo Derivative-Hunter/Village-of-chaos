@@ -1198,6 +1198,10 @@ function calculateNightResult(roomCode) {
     const trapTargets = new Set();
     const trapActors = new Map();
     let tricksterTarget = null, tricksterActor = null;
+    // Tracks which actorIds performed a genuine Kill/Attack action this night
+    // (armed Hain, Vigilante, Seri Katil, or Ninja Hain). Only these matter for
+    // deciding whether a reflected Deceiver (Düzenbaz Köylü) redirect is lethal.
+    const killPerformerIds = new Set();
 
     Object.entries(actions).forEach(([actorId, act]) => {
         const actor = room.players.find(p => p.id === actorId);
@@ -1228,16 +1232,32 @@ function calculateNightResult(roomCode) {
         }
     });
 
+    // --- DÜZENBAZ KÖYLÜ (DECEIVER) — GENERAL REFLECTION LOGIC ---
+    // Every action aimed at the Deceiver's visited target this night is redirected back
+    // onto its own performer, so it ends up affecting the performer instead of the
+    // original target. The sole exception is the Arsonist (Kundakçı): his dousing/ignite
+    // action is never reflected, so if he ends up burning the visited house, anyone still
+    // "present" there that night (including the Deceiver himself, whose own action target
+    // is never redirected away) burns along with it.
     if (tricksterActor) {
-        Object.entries(actions).forEach(([actorId, act]) => {
-            const visitor = room.players.find(p => p.id === actorId);
-            if (!visitor || visitor.id === tricksterActor.id || !visitor.isAlive || act.targetId !== tricksterTarget || act.noVisit || act.blockedByTrap || visitor.role === 'Kundakçı' || visitor.role === 'Ninja Hain') return;
-            act.reflectedTargetId = visitor.id;
-            act.originalTargetId = act.targetId;
-            act.targetId = visitor.id;
-            act.reflectedByTrickster = true;
-            io.to(visitor.id).emit('chatMessage', { sender: '[DÜZENBAZ KÖYLÜ]', text: '🪞 Düzenbaz Köylü eylemini sana yansıttı; eylemin kendi üzerinde gerçekleşti.', type: 'green' });
-        });
+        const tricksterOwnAction = actions[tricksterActor.id];
+        if (tricksterOwnAction && tricksterOwnAction.blockedByTrap) {
+            // Deceiver himself stepped on a trap - his visit never happened, no reflection.
+            tricksterActor = null;
+        } else {
+            Object.entries(actions).forEach(([actorId, act]) => {
+                const visitor = room.players.find(p => p.id === actorId);
+                if (!visitor || visitor.id === tricksterActor.id || !visitor.isAlive) return;
+                if (act.targetId !== tricksterTarget || act.noVisit || act.blockedByTrap) return;
+                if (visitor.role === 'Kundakçı') return; // Arsonist ignores the reflection entirely
+
+                act.reflectedTargetId = visitor.id;
+                act.originalTargetId = act.targetId;
+                act.targetId = visitor.id;
+                act.reflectedByTrickster = true;
+                io.to(visitor.id).emit('chatMessage', { sender: '[DÜZENBAZ KÖYLÜ]', text: '🪞 Düzenbaz Köylü eylemini sana yansıttı; eylemin kendi üzerinde gerçekleşti.', type: 'green' });
+            });
+        }
     }
 
     Object.entries(actions).forEach(([actorId, act]) => {
@@ -1254,22 +1274,25 @@ function calculateNightResult(roomCode) {
             tricksterTarget = act.targetId;
             tricksterActor = actor;
         }
-        else if (act.controlledBy && act.role === 'Seri Katil') skTarget = act.targetId;
+        else if (act.controlledBy && act.role === 'Seri Katil') { skTarget = act.targetId; killPerformerIds.add(actorId); }
         else if (act.controlledBy && (ALL_HAIN_ROLES.includes(act.role) || act.role === HAIN_KOYLU_ROLE)) {
             hainTarget = act.targetId;
             hainActor = actor;
+            killPerformerIds.add(actorId);
         }
         else if (act.controlledBy && act.role === 'Vigilante') {
             vigTarget = act.targetId;
             vigActor = actor;
+            killPerformerIds.add(actorId);
         }
         else if (actor.role === 'Doktor') { docTarget = act.targetId; docActor = actor; }
         else if (actor.role === 'Gölge Ajanı' && !actor.hasGun) { shadowTarget = act.targetId; shadowActor = actor; }
         else if (actor.role === 'Kahin Köylü') { kahinTarget = act.targetId; kahinActor = actor; }
-        else if (actor.role === 'Seri Katil') skTarget = act.targetId;
+        else if (actor.role === 'Seri Katil') { skTarget = act.targetId; killPerformerIds.add(actorId); }
         else if (actor.hasGun && ALL_HAIN_ROLES.includes(actor.role) && act.actionType !== 'NINJA') {
             hainTarget = act.targetId;
             hainActor = actor;
+            killPerformerIds.add(actorId);
         }
         else if (actor.role === 'Susturucu' && !actor.hasGun) {
             silencerActor = actor;
@@ -1279,6 +1302,7 @@ function calculateNightResult(roomCode) {
             vigTarget = act.targetId;
             vigActor = actor;
             actor.ammo--;
+            killPerformerIds.add(actorId);
         }
         else if (actor.role === 'Gözcü') { gozcuTarget = act.targetId; gozcuActor = actor; }
         else if (actor.role === 'Ayakçı') { ayakciTarget = act.targetId; ayakciActor = actor; }
@@ -1290,6 +1314,7 @@ function calculateNightResult(roomCode) {
         else if (actor.role === 'Ninja Hain' && act.actionType === 'NINJA') {
             ninjaTarget = act.targetId;
             ninjaActor = actor;
+            killPerformerIds.add(actorId);
         }
         else if (actor.role === 'Jester' && act.targetId === actor.id) {
             if (actor.jesterShield > 0) actor.jesterShieldProtected = true;
@@ -1387,6 +1412,7 @@ function calculateNightResult(roomCode) {
         }
 
         if (isMutualIgniteAttackOnArsonist && victim.id === arsoActor.id) {
+            io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
             if (attacker.role === 'Gizleyici' || attacker.role === 'Seri Katil') {
                 attacker.isAlive = false;
                 killedList.push({ player: attacker, killer: victim.role, hiddenRole: false });
@@ -1396,6 +1422,7 @@ function calculateNightResult(roomCode) {
         }
 
         if (isMutualSerialKillerHainAttack && attacker.id === hainActor.id && victim.id === serialKiller.id) {
+            io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
             attacker.isAlive = false;
             killedList.push({ player: attacker, killer: victim.role, hiddenRole: false });
             checkGunPass(room, attacker);
@@ -1436,16 +1463,28 @@ function calculateNightResult(roomCode) {
     if (hainActor && hainTarget) processAttack(hainActor, hainTarget, hainActor.role === 'Gizleyici' ? 'Gizleyici' : 'Hainler');
     if (vigActor && vigTarget) processAttack(vigActor, vigTarget, 'Vigilante');
 
+    // --- DÜZENBAZ KÖYLÜ (DECEIVER) — SURVIVAL OUTCOME ---
+    // The Deceiver only pays with his life when the specific action that got reflected
+    // back onto its performer was a genuine Kill/Attack (armed Hain, Vigilante, Seri
+    // Katil, or Ninja Hain) - this is decided by killPerformerIds, populated purely from
+    // action *type*, so it stays correct even if the self-inflicted attack was ultimately
+    // survived thanks to Doctor/Lover/Jester protection. Any reflected non-killing action
+    // (Susturma, Uyutma, Rol Öğrenme, Tuzak kurma, vb.) always leaves the Deceiver unharmed.
     if (tricksterActor && tricksterActor.isAlive) {
-        const wasAttacked = Object.entries(actions).some(([actorId, act]) => {
-            const visitor = room.players.find(p => p.id === actorId);
-            return visitor && visitor.id !== tricksterActor.id && act.reflectedByTrickster && ['Seri Katil', 'Vigilante', ...ALL_HAIN_ROLES].includes(act.role);
+        const wasKillReflected = Object.keys(actions).some(actorId => {
+            const act = actions[actorId];
+            return act && act.reflectedByTrickster && killPerformerIds.has(actorId);
         });
-        if (wasAttacked) {
+
+        if (wasKillReflected) {
             tricksterActor.isAlive = false;
             killedList.push({ player: tricksterActor, killer: 'Düzenbaz Köylü yansıması', hiddenRole: false });
             checkGunPass(room, tricksterActor);
+            io.to(tricksterActor.id).emit('chatMessage', { sender: '[DÜZENBAZ KÖYLÜ]', text: '🪞 Yansıttığın eylem ölümcül bir saldırıydı; bu yüzden sen de öldün!', type: 'green' });
+        } else {
+            io.to(tricksterActor.id).emit('chatMessage', { sender: '[DÜZENBAZ KÖYLÜ]', text: '🪞 Yansıttığın eylem öldürücü değildi; sapasağlam hayattasın.', type: 'green' });
         }
+
         const reflectedTarget = room.players.find(p => p.id === tricksterTarget);
         if (reflectedTarget) emitRoleActionMessage(tricksterActor, `🪞 ${reflectedTarget.username} kişisinin eylemini yansıtıp geri çevirdin.`);
     }
