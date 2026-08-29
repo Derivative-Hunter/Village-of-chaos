@@ -49,6 +49,44 @@ const CONFIGURABLE_ROLE_NAMES = [
 const isHainKoyluPlayer = player => Boolean(player && player.isHain && !ALL_HAIN_ROLES.includes(player.role));
 const getDeadRoleLabel = player => isHainKoyluPlayer(player) ? `Hain ${player.role}` : player.role;
 
+function buildWizardMorningMessage(controlledRole, targetUsername) {
+    return `🪄 ${controlledRole} gücünü ${targetUsername} kişisine karşı kullandın.`;
+}
+
+function emitRoleActionMessage(actor, text) {
+    if (!actor || !actor.id || !text) return;
+    io.to(actor.id).emit('chatMessage', { sender: `[${(actor.role || 'ROL').toUpperCase()}]`, text, type: 'green' });
+}
+
+function emitNightActionConfirmation(actor, actionType, targetName) {
+    if (!actor || !actor.id) return;
+    const roleName = actor.role || 'Rol';
+    let text = `${roleName} gece eylemini kaydetti.`;
+    if (actionType === 'WIZARD') {
+        text = `${roleName} gücünü ${targetName || 'hedef'} üzerine yöneltti.`;
+    } else if (actionType === 'LOVER_PROTECT') {
+        text = `${roleName} aşığını koruma eylemini ayarladı.`;
+    } else if (actionType === 'NINJA') {
+        text = `${roleName} ninja hamlesini hazırladı.`;
+    } else if (actionType === 'IGNITE') {
+        text = `${roleName} yakma eylemini başlattı.`;
+    } else if (actor.role === 'Tuzakçı Köylü') {
+        text = `${roleName} tuzağını kurdu.`;
+    } else if (actor.role === 'Vigilante') {
+        text = `${roleName} hedefini seçti ve atışına hazırlandı.`;
+    }
+    io.to(actor.id).emit('chatMessage', { sender: '[GECE EYLEMİ]', text, type: 'green' });
+}
+
+function canUseAdditionalNightAction(actor, requestedActionType, existingNightAction) {
+    if (!actor || !actor.isLover) return true;
+    if (!existingNightAction || !existingNightAction.actionType || existingNightAction.actionType === 'PASS') return true;
+    if (requestedActionType === existingNightAction.actionType) return true;
+    if (requestedActionType === 'LOVER_PROTECT' || existingNightAction.actionType === 'LOVER_PROTECT') return false;
+    if (requestedActionType === 'WIZARD' || existingNightAction.actionType === 'WIZARD') return false;
+    return true;
+}
+
 function createBotPlayer(index) {
     return {
         id: `bot-${index}`,
@@ -741,6 +779,11 @@ io.on('connection', (socket) => {
                 if (!actor.isLover || !partner || partner.id !== targetId) return socket.emit('errorMsg', 'Yalnızca yaşayan aşığını koruyabilirsin!');
                 if (actor.loverProtectUsed) return socket.emit('errorMsg', 'Aşık korumasını zaten kullandın!');
             }
+
+            const existingNightAction = room.nightActions && room.nightActions[socket.id];
+            if (!canUseAdditionalNightAction(actor, actionType, existingNightAction)) {
+                return socket.emit('errorMsg', 'Aşık olarak aynı gece iki farklı gece eylemi kullanamazsın!');
+            }
             
             if (!room.nightActions) room.nightActions = {};
             if (actor.role === 'Ninja Hain' && actionType === 'NINJA') actor.ninjaUsed = true;
@@ -748,6 +791,7 @@ io.on('connection', (socket) => {
 
             const targetPlayer = room.players.find(p => p.id === targetId);
             const targetName = targetId === 'IGNITE' ? '🔥 HERKESİ YAK' : (targetPlayer ? targetPlayer.username : 'Bilinmeyen');
+            emitNightActionConfirmation(actor, actionType, targetName);
             socket.emit('actionConfirmed', { targetId, targetName });
         }
     });
@@ -765,9 +809,15 @@ io.on('connection', (socket) => {
             return socket.emit('errorMsg', controlled && controlled.role === 'Kundakçı' ? '🛢️ Kundakçı bu gece evinden çıkmadı.' : 'Bu kişi kontrol edilemez!');
         }
         if (!target || target.id === actor.id || target.id === controlled.id || isHainPlayer(target)) return socket.emit('errorMsg', 'Hain arkadaşların, kendin veya kontrol ettiğin kişi hedef olamaz!');
+
+        const existingNightAction = room.nightActions && room.nightActions[socket.id];
+        if (!canUseAdditionalNightAction(actor, 'WIZARD', existingNightAction)) {
+            return socket.emit('errorMsg', 'Aşık olarak aynı gece iki farklı gece eylemi kullanamazsın!');
+        }
+
         room.nightActions[socket.id] = { role: actor.role, actionType: 'WIZARD', targetId, controlledId: controlled.id, controlledRole: controlled.role };
+        emitNightActionConfirmation(actor, 'WIZARD', target.username);
         socket.emit('actionConfirmed', { targetId, targetName: target.username });
-        socket.emit('chatMessage', { sender: '[BÜYÜCÜ HAIN]', text: `${controlled.role} gücünü ${target.username} kişisine karşı kullandın.`, type: 'green' });
     });
 
     socket.on('disconnect', () => {
@@ -1160,7 +1210,7 @@ function calculateNightResult(roomCode) {
     let skTarget = null;
     let hainTarget = null, hainActor = null;
     let vigTarget = null, vigActor = null;
-    let silencerTarget = null;
+    let silencerTarget = null, silencerActor = null;
     let gozcuTarget = null, gozcuActor = null;
     let ayakciTarget = null, ayakciActor = null;
     let arsoIgnite = false, arsoDouseTarget = null, arsoActor = null;
@@ -1243,7 +1293,10 @@ function calculateNightResult(roomCode) {
             hainTarget = act.targetId;
             hainActor = actor;
         }
-        else if (actor.role === 'Susturucu' && !actor.hasGun) silencerTarget = act.targetId;
+        else if (actor.role === 'Susturucu' && !actor.hasGun) {
+            silencerActor = actor;
+            silencerTarget = act.targetId;
+        }
         else if (actor.role === 'Vigilante' && actor.ammo > 0) {
             vigTarget = act.targetId;
             vigActor = actor;
@@ -1272,8 +1325,10 @@ function calculateNightResult(roomCode) {
         }
     }
 
-    if (silencerTarget) {
+    if (silencerTarget && silencerActor) {
+        const silencedPlayer = room.players.find(p => p.id === silencerTarget);
         room.mutedPlayerId = silencerTarget;
+        emitRoleActionMessage(silencerActor, silencedPlayer ? `${silencedPlayer.username} kişisini susturdun.` : 'Birini susturdun.');
         io.to(silencerTarget).emit('chatMessage', { sender: '[SUSTURUCU]', text: '🤐 Gece bir Susturucu tarafından hedef alındınız! Yarın konuşamayacaksınız.', type: 'green' });
     }
 
@@ -1281,6 +1336,7 @@ function calculateNightResult(roomCode) {
         const dTarget = room.players.find(p => p.id === arsoDouseTarget);
         if (dTarget && dTarget.isAlive) {
             dTarget.isDoused = true;
+            emitRoleActionMessage(arsoActor, `🔥 ${dTarget.username} adlı kişinin evini yağladın.`);
             io.to(arsoActor.id).emit('chatMessage', { sender: '[KUNDAKÇI]', text: `🔥 ${dTarget.username} adlı kişinin evi yağlandı.`, type: 'green' });
         }
     }
@@ -1299,6 +1355,7 @@ function calculateNightResult(roomCode) {
             killedList.push({ player: victim, killer: 'Ninja Hain', hiddenRole });
             checkGunPass(room, victim);
         });
+        emitRoleActionMessage(ninjaActor, `🌑 Seçtiğin evde ${ninjaVictims.length} ziyaretçiyi öldürdün. Kundakçı etkilenmedi.`);
         io.to(ninjaActor.id).emit('chatMessage', { sender: '[NINJA HAIN]', text: `🌑 Seçtiğin evde ${ninjaVictims.length} ziyaretçiyi öldürdün. Kundakçı etkilenmedi.`, type: 'green' });
     }
 
@@ -1411,6 +1468,8 @@ function calculateNightResult(roomCode) {
             killedList.push({ player: tricksterActor, killer: 'Düzenbaz Köylü yansıması', hiddenRole: false });
             checkGunPass(room, tricksterActor);
         }
+        const reflectedTarget = room.players.find(p => p.id === tricksterTarget);
+        if (reflectedTarget) emitRoleActionMessage(tricksterActor, `🪞 ${reflectedTarget.username} kişisinin eylemini yansıtıp geri çevirdin.`);
     }
 
     propagateLoverDeaths(room, killedList);
@@ -1436,6 +1495,7 @@ function calculateNightResult(roomCode) {
             ? `🔍 Gözcü Raporu: Bu gece ${targetP ? targetP.username : 'Hedef'} kişisinin evine gidenler: ${visitors.join(', ')}`
             : `🔍 Gözcü Raporu: Bu gece ${targetP ? targetP.username : 'Hedef'} kişisinin evine kimse gitmedi.`;
 
+        emitRoleActionMessage(gozcuActor, reportText);
         io.to(gozcuActor.id).emit('chatMessage', { sender: '[GÖZCÜ RAPORU]', text: reportText, type: 'green' });
     }
 
@@ -1451,6 +1511,7 @@ function calculateNightResult(roomCode) {
             reportText = `👟 Ayakçı Raporu: ${targetP ? targetP.username : 'Hedef'} bu gece evinden dışarı çıkmadı.`;
         }
 
+        emitRoleActionMessage(ayakciActor, reportText);
         io.to(ayakciActor.id).emit('chatMessage', { sender: '[AYAKÇI RAPORU]', text: reportText, type: 'green' });
     }
 
@@ -1458,9 +1519,20 @@ function calculateNightResult(roomCode) {
         const target = room.players.find(p => p.id === shadowTarget);
         if (target) {
             shadowActor.shadowRole = { targetId: target.id, role: target.role };
+            emitRoleActionMessage(shadowActor, `🌑 ${target.username} adlı kişinin rolünü öğrendin: ${target.role}.`);
             io.to(shadowActor.id).emit('chatMessage', { sender: '[GÖLGE AJANI]', text: `🌑 ${target.username} adlı kişinin rolünü öğrendin: ${target.role}. Sabah evinin üstünde görünecek.`, type: 'green' });
         }
     }
+
+    Object.entries(room.nightActions || {}).forEach(([actorId, act]) => {
+        const actor = room.players.find(p => p.id === actorId);
+        if (!actor || !actor.isAlive || act.actionType !== 'WIZARD') return;
+        const controlled = room.players.find(p => p.id === act.controlledId);
+        const target = room.players.find(p => p.id === act.targetId);
+        if (controlled && target) {
+            io.to(actor.id).emit('chatMessage', { sender: '[BÜYÜCÜ HAIN]', text: buildWizardMorningMessage(controlled.role, target.username), type: 'green' });
+        }
+    });
 
     if (kahinActor && kahinTarget) {
         const target = room.players.find(p => p.id === kahinTarget);
@@ -1473,6 +1545,7 @@ function calculateNightResult(roomCode) {
         const reportText = visitorRoles.length > 0
             ? `🔮 ${target ? target.username : 'Hedef'} kişisinin evine gelen roller: ${visitorRoles.join(', ')}`
             : `🔮 ${target ? target.username : 'Hedef'} kişisinin evine bu gece kimse gelmedi.`;
+        emitRoleActionMessage(kahinActor, reportText);
         io.to(kahinActor.id).emit('chatMessage', { sender: '[KAHİN KÖYLÜ RAPORU]', text: reportText, type: 'green' });
     }
 }
@@ -1603,6 +1676,14 @@ function checkWinCondition(roomCode) {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Village of Chaos sunucusu ${PORT} portunda çalışıyor.`);
-});
+
+if (require.main === module) {
+    server.listen(PORT, () => {
+        console.log(`Village of Chaos sunucusu ${PORT} portunda çalışıyor.`);
+    });
+}
+
+module.exports = {
+    buildWizardMorningMessage,
+    canUseAdditionalNightAction
+};
