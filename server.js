@@ -154,9 +154,9 @@ function assignHainKoyluRoles(room, shuffledPlayers, startIndex, requestedCount,
     return startIndex + Math.min(count, availableRoles.length);
 }
 
-function assignConfiguredRoles(room, shuffledPlayers, roleCounts) {
+function assignConfiguredRoles(room, shuffledPlayers, roleCounts, usedRoles) {
     const configuredRoles = CONFIGURABLE_ROLE_NAMES.flatMap(roleName =>
-        Array.from({ length: Math.max(0, parseInt(roleCounts[roleName]) || 0) }, () => roleName)
+        Array.from({ length: Math.min(1, Math.max(0, parseInt(roleCounts[roleName]) || 0)) }, () => roleName)
     );
     const selectedRoles = shuffle(configuredRoles).slice(0, shuffledPlayers.length);
 
@@ -166,6 +166,7 @@ function assignConfiguredRoles(room, shuffledPlayers, roleCounts) {
         player.isHain = ALL_HAIN_ROLES.includes(roleName);
         player.isAlive = true;
         player.ammo = roleName === 'Vigilante' ? 2 : 0;
+        usedRoles.add(roleName);
     });
 
     return selectedRoles.length;
@@ -457,17 +458,14 @@ io.on('connection', (socket) => {
         const usedRoles = new Set();
 
         const hasConfiguredRoles = Object.values(cfg.normalRoleCounts || {}).some(count => parseInt(count) > 0);
-        if (hasConfiguredRoles) {
-            idx = assignConfiguredRoles(room, shuffled, cfg.normalRoleCounts);
-        } else {
-            idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.hain['Silahlı Hainler'], cfg.silahliHainCount, usedRoles);
-            idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.hain['Destekçi Hainler'], cfg.destekciHainCount, usedRoles);
-            idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.neutral['Silahlı Tarafsızlar'], cfg.silahliTarafsizCount, usedRoles);
-            idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.neutral['Normal Tarafsızlar'], cfg.normalTarafsizCount, usedRoles);
-            idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.town['Koruma Köylüleri'], cfg.korumaKoylusuCount, usedRoles);
-            idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.town['Silahlı Köylüler'], cfg.silahliKoyluCount, usedRoles);
-            idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.town['Araştırmacı Köylüler'], cfg.arastirmaciKoyluCount, usedRoles);
-        }
+        if (hasConfiguredRoles) idx = assignConfiguredRoles(room, shuffled, cfg.normalRoleCounts, usedRoles);
+        idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.hain['Silahlı Hainler'], cfg.silahliHainCount, usedRoles);
+        idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.hain['Destekçi Hainler'], cfg.destekciHainCount, usedRoles);
+        idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.neutral['Silahlı Tarafsızlar'], cfg.silahliTarafsizCount, usedRoles);
+        idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.neutral['Normal Tarafsızlar'], cfg.normalTarafsizCount, usedRoles);
+        idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.town['Koruma Köylüleri'], cfg.korumaKoylusuCount, usedRoles);
+        idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.town['Silahlı Köylüler'], cfg.silahliKoyluCount, usedRoles);
+        idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.town['Araştırmacı Köylüler'], cfg.arastirmaciKoyluCount, usedRoles);
         idx = assignHainKoyluRoles(room, shuffled, idx, cfg.hainKoyluCount, usedRoles);
 
         while (idx < totalPlayers) {
@@ -1531,13 +1529,11 @@ function calculateNightResult(roomCode) {
         const visitors = Object.entries(actions)
             .filter(([aId, act]) => act.targetId === gozcuTarget && !act.noVisit && aId !== gozcuActor.id)
             .map(([aId]) => room.players.find(p => p.id === aId))
-            .filter(p => p && p.role !== 'Seri Katil' && p.role !== LOST_HAIN_ROLE)
+            .filter(p => p && p.role !== 'Seri Katil' && !(p.role === LOST_HAIN_ROLE && gozcuTarget === actions[p.id]?.targetId))
             .map(p => p.username);
 
         const targetP = room.players.find(p => p.id === gozcuTarget);
-        const reportText = targetP && targetP.role === LOST_HAIN_ROLE
-            ? `🔍 Gözcü Raporu: ${targetP.username} bu gece evinden dışarı çıkmadı.`
-            : visitors.length > 0 
+        const reportText = visitors.length > 0 
             ? `🔍 Gözcü Raporu: Bu gece ${targetP ? targetP.username : 'Hedef'} kişisinin evine gidenler: ${visitors.join(', ')}`
             : `🔍 Gözcü Raporu: Bu gece ${targetP ? targetP.username : 'Hedef'} kişisinin evine kimse gitmedi.`;
 
