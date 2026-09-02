@@ -172,6 +172,7 @@ function assignConfiguredRoles(room, shuffledPlayers, roleCounts) {
 
 function assignLovers(room, requestedPairs) {
     room.loverPair = [];
+    room.loverShieldUsed = false;
     room.players.forEach(player => {
         player.isLover = false;
         player.loverPartnerId = null;
@@ -262,6 +263,7 @@ function sendGameState(roomCode) {
             isLover: player.isLover,
             loverPartnerId: player.loverPartnerId,
             loverProtectUsed: player.loverProtectUsed
+                        || room.loverShieldUsed
         });
     });
 }
@@ -757,7 +759,7 @@ io.on('connection', (socket) => {
             if (actionType === 'LOVER_PROTECT') {
                 const partner = room.players.find(player => player.id === actor.loverPartnerId && player.isAlive);
                 if (!actor.isLover || !partner || partner.id !== targetId) return socket.emit('errorMsg', 'Yalnızca yaşayan aşığını koruyabilirsin!');
-                if (actor.loverProtectUsed) return socket.emit('errorMsg', 'Aşık korumasını zaten kullandın!');
+                if (room.loverShieldUsed) return socket.emit('errorMsg', 'Aşık koruması zaten kullanıldı!');
             }
 
             const existingNightAction = room.nightActions && room.nightActions[socket.id];
@@ -1265,8 +1267,12 @@ function calculateNightResult(roomCode) {
         if (!actor || !actor.isAlive || act.blockedByTrap) return;
 
         if (actor.isLover && act.actionType === 'LOVER_PROTECT') {
+            if (room.loverShieldUsed) return;
             loverProtectTarget = act.targetId;
+            room.loverShieldUsed = true;
             actor.loverProtectUsed = true;
+            const loverPartner = room.players.find(player => player.id === actor.loverPartnerId);
+            if (loverPartner) loverPartner.loverProtectUsed = true;
             return;
         }
 
@@ -1407,12 +1413,13 @@ function calculateNightResult(roomCode) {
         const isKundakciTarget = victim.role === 'Kundakçı';
         if (isKundakciTarget && !canKillKundakci) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
-            io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: '🛡️ Hedefin korundu (Doktor/Kalkan).', type: 'green' });
+            io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: 'Hedefinizi öldüremediniz.', type: 'green' });
             return;
         }
 
         if (isMutualIgniteAttackOnArsonist && victim.id === arsoActor.id) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
+            io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: 'Hedefinizi öldüremediniz.', type: 'green' });
             if (attacker.role === 'Gizleyici' || attacker.role === 'Seri Katil') {
                 attacker.isAlive = false;
                 killedList.push({ player: attacker, killer: victim.role, hiddenRole: false });
@@ -1423,6 +1430,7 @@ function calculateNightResult(roomCode) {
 
         if (isMutualSerialKillerHainAttack && attacker.id === hainActor.id && victim.id === serialKiller.id) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
+            io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: 'Hedefinizi öldüremediniz.', type: 'green' });
             attacker.isAlive = false;
             killedList.push({ player: attacker, killer: victim.role, hiddenRole: false });
             checkGunPass(room, attacker);
@@ -1435,6 +1443,7 @@ function calculateNightResult(roomCode) {
 
         if (protectedByDoc || protectedByLover || protectedByJester) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
+            io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: 'Hedefinizi öldüremediniz.', type: 'green' });
             if (protectedByJester) {
                 victim.jesterShield--;
                 victim.jesterShieldProtected = false;

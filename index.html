@@ -1389,6 +1389,7 @@
 
     function setHainChatMode() {
         loverChatMode = false;
+        duyucuChatMode = '';
         const input = document.getElementById('chat-input');
         input.value = '/hainler ';
         input.placeholder = 'Hain sohbetine mesaj yaz...';
@@ -1426,6 +1427,10 @@
                 ? `/hainler ${text}` : text);
         socket.emit('sendMessage', { roomCode: currentRoomCode, text: message });
         input.value = '';
+        loverChatMode = false;
+        duyucuChatMode = '';
+        input.placeholder = 'Mesaj yaz veya oyuncudan \'Fısılda\' seç...';
+        input.focus();
     }
 
     function sendLobbyChat() {
