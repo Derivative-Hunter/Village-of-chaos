@@ -22,7 +22,7 @@ const ROLE_CATEGORIES = {
         'Araştırmacı Köylüler': ['Ayakçı', 'Gözcü', 'Medyum', 'Casus', 'Kahin Köylü']
     },
     hain: {
-        'Silahlı Hainler': ['Gizleyici', 'Düz Hain', 'Ninja Hain'],
+        'Silahlı Hainler': ['Gizleyici', 'Düz Hain', 'Ninja Hain', 'Kayıp Hain'],
         'Destekçi Hainler': ['Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Duyucu Hain'],
         'Hain Köylü': ['Hain Köylü']
     },
@@ -32,7 +32,8 @@ const ROLE_CATEGORIES = {
     }
 };
 
-const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain'];
+const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'];
+const LOST_HAIN_ROLE = 'Kayıp Hain';
 const HAIN_KOYLU_ROLE = 'Hain Köylü';
 const isHainPlayer = player => Boolean(player && (player.isHain || ALL_HAIN_ROLES.includes(player.role)));
 const NON_VISITING_ROLES = ['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Jester'];
@@ -123,7 +124,7 @@ function assignCategoryRoles(room, shuffledPlayers, startIndex, categoryRoles, r
     selectedRoles.forEach((roleName, offset) => {
         const player = room.players.find(player => player.id === shuffledPlayers[startIndex + offset].id);
         player.role = roleName;
-        player.isHain = false;
+        player.isHain = ALL_HAIN_ROLES.includes(roleName);
         player.isAlive = true;
         player.ammo = roleName === 'Vigilante' ? 2 : 0;
         usedRoles.add(roleName);
@@ -206,7 +207,7 @@ function assignLovers(room, requestedPairs) {
 }
 
 function assignGuns(room) {
-    const hains = room.players.filter(p => p.isAlive && ALL_HAIN_ROLES.includes(p.role) && !isHainKoyluPlayer(p));
+    const hains = room.players.filter(p => p.isAlive && ALL_HAIN_ROLES.includes(p.role) && p.role !== LOST_HAIN_ROLE && !isHainKoyluPlayer(p));
     hains.forEach(h => h.hasGun = false);
 
     const priority = ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Duyucu Hain', 'Ninja Hain', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain'];
@@ -228,7 +229,7 @@ function sendGameState(roomCode) {
         const isHain = isHainPlayer(player);
         
         const playerListState = room.players.map(p => {
-            const isAllyTraitor = isHain && isHainPlayer(p);
+            const isAllyTraitor = player.role !== LOST_HAIN_ROLE && isHain && p.role !== LOST_HAIN_ROLE && isHainPlayer(p);
             return {
                 id: p.id,
                 username: p.username,
@@ -262,8 +263,7 @@ function sendGameState(roomCode) {
             ninjaUsed: player.ninjaUsed,
             isLover: player.isLover,
             loverPartnerId: player.loverPartnerId,
-            loverProtectUsed: player.loverProtectUsed
-                        || room.loverShieldUsed
+            loverProtectUsed: player.loverProtectUsed || room.loverShieldUsed
         });
     });
 }
@@ -289,6 +289,7 @@ io.on('connection', (socket) => {
             hainKoyluCountdown: null,
             hainKoyluCountdownPending: false,
             hunterStand: null,
+            loverShieldUsed: false,
             settings: {
                 randomTownCount: 0,
                 randomHainCount: 0,
@@ -524,6 +525,7 @@ io.on('connection', (socket) => {
 
         if (target.role === guessedRole) {
             target.isAlive = false;
+            target.roleHidden = true;
             io.to(code).emit('systemAnnounce', `💀 [SUİKAST] ${target.username} gündüz vakti suikaste uğrayarak öldü! Rolü: GİZLİ`);
             checkGunPass(room, target);
         } else {
@@ -554,6 +556,7 @@ io.on('connection', (socket) => {
         const stolenRole = target.role;
 
         target.isAlive = false;
+        target.roleHidden = true;
         io.to(code).emit('systemAnnounce', `💀 [HIRSIZ] ${target.username} gündüz vakti vuruldu! Rolü: GİZLİ`);
         checkGunPass(room, target);
 
@@ -664,10 +667,10 @@ io.on('connection', (socket) => {
                 socket.emit('chatMessage', { sender: sender.username, text: loverText, type: 'lover' });
                 return;
             }
-            if (sender.isLover && isHainPlayer(sender) && text.startsWith('/hainler ')) {
+            if (sender.isLover && isHainPlayer(sender) && sender.role !== LOST_HAIN_ROLE && text.startsWith('/hainler ')) {
                 const hainText = text.substring(9).trim();
                 if (!hainText) return;
-                room.players.filter(player => player.isAlive && isHainPlayer(player)).forEach(player => {
+                room.players.filter(player => player.isAlive && isHainPlayer(player) && player.role !== LOST_HAIN_ROLE).forEach(player => {
                     io.to(player.id).emit('chatMessage', { sender: sender.username, text: hainText, type: 'hain' });
                 });
                 return;
@@ -675,7 +678,7 @@ io.on('connection', (socket) => {
             if (sender.role === 'Duyucu Hain' && text.startsWith('/hainler ')) {
                 const hainText = text.substring(9).trim();
                 if (!hainText) return;
-                room.players.filter(p => p.isAlive && isHainPlayer(p)).forEach(p => io.to(p.id).emit('chatMessage', { sender: sender.username, text: hainText, type: 'hain' }));
+                room.players.filter(p => p.isAlive && isHainPlayer(p) && p.role !== LOST_HAIN_ROLE).forEach(p => io.to(p.id).emit('chatMessage', { sender: sender.username, text: hainText, type: 'hain' }));
                 return;
             }
             if (sender.role === 'Duyucu Hain' && text.startsWith('/ölüler ')) {
@@ -685,8 +688,11 @@ io.on('connection', (socket) => {
                 socket.emit('chatMessage', { sender: 'Duyucu', text: deadText, type: 'dead' });
                 return;
             }
+            if (sender.role === LOST_HAIN_ROLE) {
+                return socket.emit('errorMsg', 'Kayıp Hain olarak hain sohbetine erişemezsin.');
+            }
             if (isHainPlayer(sender)) {
-                const hains = room.players.filter(p => isHainPlayer(p));
+                const hains = room.players.filter(p => isHainPlayer(p) && p.role !== LOST_HAIN_ROLE);
                 hains.forEach(p => io.to(p.id).emit('chatMessage', { sender: sender.username, text, type: 'hain' }));
             } else if (sender.role === 'Duyucu Hain') {
                 room.players.filter(p => !p.isAlive).forEach(p => io.to(p.id).emit('chatMessage', { sender: 'Duyucu', text, type: 'dead' }));
@@ -960,6 +966,8 @@ function addBotNightActions(room) {
             }
         } else if (bot.role === 'Jester') {
             target = bot;
+        } else if (bot.role === 'Kayıp Hain') {
+            target = chooseTarget(bot);
         } else if (bot.role === 'Kundakçı') {
             const doused = alivePlayers.find(player => player.isDoused && player.id !== bot.id);
             target = doused ? { id: 'IGNITE' } : chooseTarget(bot);
@@ -1150,11 +1158,14 @@ function calculateNightResult(roomCode) {
         const target = room.players.find(p => p.id === act.targetId);
         if (!target) return;
 
+        if (target.role === 'Seri Katil' || target.role === LOST_HAIN_ROLE) {
+            io.to(actor.id).emit('chatMessage', { sender: '[UYUTUCU]', text: '💤 Eylemin işlemedi.', type: 'green' });
+            return;
+        }
+
         io.to(target.id).emit('systemAnnounce', '[SİSTEM] 💤 Bu gece uyutuldun!');
 
-        if (target.role === 'Seri Katil') {
-            io.to(actor.id).emit('chatMessage', { sender: '[UYUTUCU]', text: '💤 Eylemin işlemedi.', type: 'green' });
-        } else if (!actions[target.id] || !actions[target.id].targetId) {
+        if (!actions[target.id] || !actions[target.id].targetId) {
             io.to(actor.id).emit('chatMessage', { sender: '[UYUTUCU]', text: '💤 Eylemin işlemedi.', type: 'green' });
         } else if (target.role === 'Kundakçı' && actions[target.id].targetId === 'IGNITE') {
             io.to(actor.id).emit('chatMessage', { sender: '[UYUTUCU]', text: '🔥 Kundakçının yakma eylemi durdurulamaz.', type: 'green' });
@@ -1189,6 +1200,7 @@ function calculateNightResult(roomCode) {
     let loverProtectTarget = null;
     let skTarget = null;
     let hainTarget = null, hainActor = null;
+    let lostHainTarget = null, lostHainActor = null;
     let vigTarget = null, vigActor = null;
     let silencerTarget = null, silencerActor = null;
     let gozcuTarget = null, gozcuActor = null;
@@ -1224,7 +1236,7 @@ function calculateNightResult(roomCode) {
     Object.entries(actions).forEach(([actorId, act]) => {
         const actor = room.players.find(p => p.id === actorId);
         if (!actor || !actor.isAlive || !act.targetId || !trapTargets.has(act.targetId)) return;
-        if (!['Seri Katil', 'Kundakçı'].includes(actor.role) && actor.role !== 'Tuzakçı Köylü' && !(actor.role === 'Ninja Hain' && act.actionType === 'NINJA')) {
+        if (!['Seri Katil', 'Kundakçı', LOST_HAIN_ROLE].includes(actor.role) && actor.role !== 'Tuzakçı Köylü' && !(actor.role === 'Ninja Hain' && act.actionType === 'NINJA')) {
             act.blockedByTrap = true;
             const trapper = trapActors.get(act.targetId);
             if (trapper) {
@@ -1295,6 +1307,11 @@ function calculateNightResult(roomCode) {
         else if (actor.role === 'Gölge Ajanı' && !actor.hasGun) { shadowTarget = act.targetId; shadowActor = actor; }
         else if (actor.role === 'Kahin Köylü') { kahinTarget = act.targetId; kahinActor = actor; }
         else if (actor.role === 'Seri Katil') { skTarget = act.targetId; killPerformerIds.add(actorId); }
+        else if (actor.role === LOST_HAIN_ROLE) {
+            lostHainTarget = act.targetId;
+            lostHainActor = actor;
+            killPerformerIds.add(actorId);
+        }
         else if (actor.hasGun && ALL_HAIN_ROLES.includes(actor.role) && act.actionType !== 'NINJA') {
             hainTarget = act.targetId;
             hainActor = actor;
@@ -1409,7 +1426,7 @@ function calculateNightResult(roomCode) {
         const victim = room.players.find(p => p.id === targetId);
         if (!victim || !victim.isAlive) return;
 
-        const canKillKundakci = ['Gizleyici', 'Seri Katil'].includes(attacker.role);
+        const canKillKundakci = ['Gizleyici', 'Seri Katil', LOST_HAIN_ROLE].includes(attacker.role);
         const isKundakciTarget = victim.role === 'Kundakçı';
         if (isKundakciTarget && !canKillKundakci) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
@@ -1470,6 +1487,7 @@ function calculateNightResult(roomCode) {
 
     if (skTarget) processAttack(room.players.find(p => p.role === 'Seri Katil'), skTarget, 'Seri Katil');
     if (hainActor && hainTarget) processAttack(hainActor, hainTarget, hainActor.role === 'Gizleyici' ? 'Gizleyici' : 'Hainler');
+    if (lostHainActor && lostHainTarget) processAttack(lostHainActor, lostHainTarget, LOST_HAIN_ROLE);
     if (vigActor && vigTarget) processAttack(vigActor, vigTarget, 'Vigilante');
 
     // --- DÜZENBAZ KÖYLÜ (DECEIVER) — SURVIVAL OUTCOME ---
@@ -1513,11 +1531,13 @@ function calculateNightResult(roomCode) {
         const visitors = Object.entries(actions)
             .filter(([aId, act]) => act.targetId === gozcuTarget && !act.noVisit && aId !== gozcuActor.id)
             .map(([aId]) => room.players.find(p => p.id === aId))
-            .filter(p => p && p.role !== 'Seri Katil')
+            .filter(p => p && p.role !== 'Seri Katil' && p.role !== LOST_HAIN_ROLE)
             .map(p => p.username);
 
         const targetP = room.players.find(p => p.id === gozcuTarget);
-        const reportText = visitors.length > 0 
+        const reportText = targetP && targetP.role === LOST_HAIN_ROLE
+            ? `🔍 Gözcü Raporu: ${targetP.username} bu gece evinden dışarı çıkmadı.`
+            : visitors.length > 0 
             ? `🔍 Gözcü Raporu: Bu gece ${targetP ? targetP.username : 'Hedef'} kişisinin evine gidenler: ${visitors.join(', ')}`
             : `🔍 Gözcü Raporu: Bu gece ${targetP ? targetP.username : 'Hedef'} kişisinin evine kimse gitmedi.`;
 
@@ -1530,7 +1550,7 @@ function calculateNightResult(roomCode) {
         const targetP = room.players.find(p => p.id === ayakciTarget);
         let reportText = '';
 
-        if (visitedAct && !visitedAct.noVisit && visitedAct.targetId && targetP && targetP.role !== 'Seri Katil') {
+        if (visitedAct && !visitedAct.noVisit && visitedAct.targetId && targetP && targetP.role !== 'Seri Katil' && targetP.role !== LOST_HAIN_ROLE) {
             const destP = room.players.find(p => p.id === visitedAct.targetId);
             reportText = `👟 Ayakçı Raporu: ${targetP.username} bu gece ${destP ? destP.username : 'Bilinmeyen'} kişisinin evine gitti.`;
         } else {

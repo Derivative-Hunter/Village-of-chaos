@@ -689,7 +689,7 @@
             <div class="role-category hain">
                 <h5>👹 Hain Takımı · Silahlı Hainler</h5>
                 <div class="setting-grid">
-                    <div class="setting-item"><label>Rol sayısı (Gizleyici / Düz Hain / Ninja):</label><input type="number" id="cfg-silahli-hain" value="1" min="0" max="3" onchange="emitSettings()"></div>
+                    <div class="setting-item"><label>Rol sayısı (Gizleyici / Düz Hain / Ninja / Kayıp Hain):</label><input type="number" id="cfg-silahli-hain" value="1" min="0" max="4" onchange="emitSettings()"></div>
                 </div>
             </div>
             <div class="role-category hain">
@@ -738,6 +738,7 @@
                 <div class="setting-item"><label>Gizleyici</label><input type="number" id="cfg-role-gizleyici" data-role="Gizleyici" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Düz Hain</label><input type="number" id="cfg-role-duz-hain" data-role="Düz Hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Ninja Hain</label><input type="number" id="cfg-role-ninja" data-role="Ninja Hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Kayıp Hain</label><input type="number" id="cfg-role-kayip-hain" data-role="Kayıp Hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Suikastçi</label><input type="number" id="cfg-role-suikastci" data-role="Suikastçi" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Gölge Ajanı</label><input type="number" id="cfg-role-golge" data-role="Gölge Ajanı" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Susturucu</label><input type="number" id="cfg-role-susturucu" data-role="Susturucu" value="0" min="0" max="5" onchange="emitSettings()"></div>
@@ -886,6 +887,7 @@
             <option value="Gizleyici">Gizleyici</option>
             <option value="Düz Hain">Düz Hain</option>
             <option value="Ninja Hain">Ninja Hain</option>
+            <option value="Kayıp Hain">Kayıp Hain</option>
             <option value="Suikastçi">Suikastçi</option>
             <option value="Gölge Ajanı">Gölge Ajanı</option>
             <option value="Susturucu">Susturucu</option>
@@ -926,6 +928,7 @@
         <div class="role-list-item evil"><strong>🕵️ Gizleyici:</strong> Gece silahı taşıyıp saldırıyı gerçekleştirir; öldürdüğü kişinin rolünü gizler.</div>
         <div class="role-list-item evil"><strong>👹 Düz Hain:</strong> Hainlerle birlikte hareket eder ve silah kendisine geçtiğinde gece saldırır.</div>
         <div class="role-list-item evil"><strong>🌑 Ninja Hain:</strong> Gece bir kez bir eve gider ve o eve gelen herkesi öldürür; Kundakçı etkilenmez. Silahı olsa bile aynı gece ya silahıyla saldırır ya da bu yeteneğini kullanır.</div>
+        <div class="role-list-item evil"><strong>🕳️ Kayıp Hain:</strong> Hain takımındadır ancak diğer hainleri göremez ve hain sohbetine katılamaz. Her gece bağımsız silahıyla bir kişiye saldırabilir; diğer hainler de onu tanımaz.</div>
         <div class="role-list-item evil"><strong>🌑 Gölge Ajanı:</strong> Gece bir oyuncunun rolünü öğrenir; sabah yalnızca kendi evinin üstünde bu rolü görür.</div>
         <div class="role-list-item evil"><strong>🎯 Suikastçi:</strong> Gündüz bir oyuncunun rolünü doğru tahmin ederse onu öldürür; yanlış tahmin ederse kendisi ölür. Hain saldırı gücü yalnızca Seri Katil ile karşılıklı saldırıda üstün gelir.</div>
         <div class="role-list-item evil"><strong>🤐 Susturucu:</strong> Silahı taşıdığı zaman saldırır; taşımadığı zaman gece bir oyuncuyu ertesi gün susturur.</div>
@@ -1131,7 +1134,7 @@
         myRole = role;
         const badge = document.getElementById('my-role-badge');
         badge.innerText = role;
-        if (isHain || (role && ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Duyucu Hain'].includes(role))) {
+        if (isHain || (role && ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'].includes(role))) {
             badge.className = 'role-pill Hain';
         } else if (['Seri Katil', 'Jester', 'Hırsız', 'Kundakçı'].includes(role)) {
             badge.className = 'role-pill Neutral';
@@ -1210,7 +1213,7 @@
                 if (isLover) duyucuLoverChatBtn.classList.remove('hidden');
             }
             if (isLover && amIAlive && myRole !== 'Duyucu Hain') loverTools.classList.remove('hidden');
-            if (isLover && isHain && amIAlive && myRole !== 'Duyucu Hain') loverHainChatBtn.classList.remove('hidden');
+            if (isLover && isHain && amIAlive && myRole !== 'Duyucu Hain' && myRole !== 'Kayıp Hain') loverHainChatBtn.classList.remove('hidden');
             if (myRole === 'Vigilante' && amIAlive) vigilantePassBtn.classList.remove('hidden');
         }
 
@@ -1249,7 +1252,7 @@
                         if (!['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
                             let btnLabel = '🎯 Eylem';
                             if (myRole === 'Doktor') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
-                            else if (['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain'].includes(myRole) || (myRole === 'Büyücü Hain' && hasGun)) btnLabel = '🎯 Saldır';
+                            else if (['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain', 'Kayıp Hain'].includes(myRole) || (myRole === 'Büyücü Hain' && hasGun)) btnLabel = '🎯 Saldır';
                             else if (myRole === 'Gölge Ajanı') btnLabel = hasGun ? '🎯 Saldır' : '🌑 Rolünü Öğren';
                             else if (myRole === 'Kahin Köylü') btnLabel = '🔮 İncele';
                             else if (myRole === 'Tuzakçı Köylü') btnLabel = '🪤 Tuzak Kur';
