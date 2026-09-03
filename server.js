@@ -1691,7 +1691,7 @@ function propagateLoverDeaths(room, killedList = null) {
 
 function emitGameOver(roomCode, result) {
     const room = rooms[roomCode];
-    const allyWon = room && room.players.some(player => player.role === 'Müttefik' && player.isAlive && player.allyTargetId && room.players.some(target => target.id === player.allyTargetId && target.isAlive));
+    const allyWon = room && room.players.some(player => player.role === 'Müttefik' && player.allyTargetId && room.players.some(target => target.id === player.allyTargetId && target.isAlive));
     io.to(roomCode).emit('gameOver', allyWon && !result.winner.includes('MÜTTEFİK')
         ? { winner: `${result.winner} VE MÜTTEFİK`, msg: `${result.msg} 🤝 Müttefik de kazandı!` }
         : result);
@@ -1700,7 +1700,7 @@ function emitGameOver(roomCode, result) {
 function getAdditionalWinners(room, alivePlayers) {
     const loverPair = room.loverPair || [];
     const aliveLovers = loverPair.filter(playerId => alivePlayers.some(player => player.id === playerId));
-    const ally = alivePlayers.find(player => player.role === 'Müttefik');
+    const ally = room.players.find(player => player.role === 'Müttefik');
 
     return {
         loversWon: aliveLovers.length === 2,
