@@ -1637,6 +1637,14 @@ function checkWinCondition(roomCode) {
 
     const baskanBlocksWin = aliveBaskan.length > 0;
     const aliveEvils = [...aliveHain, ...aliveHainKoylu, ...aliveLostHain, ...aliveSK, ...aliveKundakci];
+
+    if (aliveLostHain.length === 1 && alivePlayers.length === 1) {
+        clearInterval(room.timer);
+        sendGameState(roomCode);
+        io.to(roomCode).emit('gameOver', { winner: 'KAYIP HAİN', msg: '🕳️ Kayıp Hain herkesten uzun hayatta kaldı ve kazandı!' });
+        return true;
+    }
+
     const loverPair = room.loverPair || [];
     const aliveLovers = loverPair.filter(playerId => alivePlayers.some(player => player.id === playerId));
     const nonNeutralPlayers = alivePlayers.filter(player => !NEUTRAL_ROLES.includes(player.role));
