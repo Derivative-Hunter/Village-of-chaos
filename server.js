@@ -240,6 +240,7 @@ function sendGameState(roomCode) {
                 isAlive: p.isAlive,
                 role: (!p.isAlive && p.role && !p.roleHidden) ? getDeadRoleLabel(p) : null,
                 isAllyTraitor: isAllyTraitor,
+                isAllyTarget: player.role === 'Müttefik' && player.allyTargetId === p.id,
                 isRevealed: p.isRevealed,
                 isDoused: player.role === 'Kundakçı' && p.isDoused,
                 shadowRole: player.shadowRole && player.shadowRole.targetId === p.id ? player.shadowRole.role : null
@@ -1343,7 +1344,7 @@ function calculateNightResult(roomCode) {
             if (!target || actor.allyProtectUses >= 2) return;
             if (room.dayNumber > 1 && actor.allyTargetId !== target.id) return;
             actor.allyTargetId = target.id;
-            actor.allyProtectUses++;
+            if (room.dayNumber > 1) actor.allyProtectUses++;
             allyProtectTarget = target.id;
             io.to(actor.id).emit('chatMessage', { sender: '[MÜTTEFİK]', text: `${target.username} adlı kişiyi korudun. Koruma hakkın: ${2 - actor.allyProtectUses}`, type: 'green' });
         }

@@ -1281,7 +1281,7 @@
                                 if (isMe && jesterShield > 0) {
                                     actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">${btnLabel}</button>`;
                                 }
-                            } else if (!isMe || myRole === 'Doktor' || (myRole === 'Müttefik' && dayNumber === 1)) {
+                            } else if (!isMe || myRole === 'Doktor' || (myRole === 'Müttefik' && (dayNumber === 1 || allyTargetId === p.id))) {
                                 if (myRole === 'Müttefik' && dayNumber > 1 && (allyTargetId !== p.id || allyProtectUses >= 2)) {
                                     actionBtnHtml = '';
                                 } else {
@@ -1307,6 +1307,7 @@
             const isAllyTraitor = p.isAllyTraitor;
             const nameClass = isAllyTraitor ? 'player-name text-red' : (isLover && (isMe || p.id === loverPartnerId) ? 'player-name lover-name' : 'player-name');
             const allyTag = isAllyTraitor && !isMe ? `<span style="font-size:10px; color:#ef4444; font-weight:bold;">[HAİN MÜTTEFİK]</span>` : '';
+            const allyTargetTag = p.isAllyTarget ? `<span style="font-size:10px; color:#22c55e; font-weight:bold;">[🤝 MÜTTEFİKİN]</span>` : '';
             const baskanTag = p.isRevealed ? `<span style="font-size:10px; color:#eab308; font-weight:bold;">[👑 BAŞKAN]</span>` : '';
             const dousedTag = p.isDoused ? `<span style="font-size:10px; color:#f97316; font-weight:bold;">[🔥 EVİ YAĞLANDI]</span>` : '';
 
@@ -1317,6 +1318,7 @@
                         <div class="house-icon">🏠</div>
                         <div class="${nameClass}">${p.username} ${isMe ? '(Sen)' : ''}</div>
                         ${allyTag}
+                        ${allyTargetTag}
                         ${baskanTag}
                         ${dousedTag}
                         ${roleTagHtml}
