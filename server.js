@@ -1701,9 +1701,12 @@ function getAdditionalWinners(room, alivePlayers) {
     const loverPair = room.loverPair || [];
     const aliveLovers = loverPair.filter(playerId => alivePlayers.some(player => player.id === playerId));
     const ally = room.players.find(player => player.role === 'Müttefik');
+    const hasLivingIncompatibleNeutral = alivePlayers.some(player =>
+        NEUTRAL_ROLES.includes(player.role) && player.role !== 'Müttefik'
+    );
 
     return {
-        loversWon: aliveLovers.length === 2,
+        loversWon: aliveLovers.length === 2 && !hasLivingIncompatibleNeutral,
         allyWon: Boolean(ally && ally.allyTargetId && alivePlayers.some(player => player.id === ally.allyTargetId)),
         loverPairIncludesHain: loverPair.some(playerId => {
             const player = room.players.find(candidate => candidate.id === playerId);
@@ -1723,6 +1726,24 @@ function withAdditionalWinners(result, room, alivePlayers) {
         msg: additionalWinners.loversWon && !result.msg.includes('Aşıklar')
             ? `${result.msg} 💗 Aşıklar da kazandı!`
             : result.msg
+    };
+}
+
+function hasHainMajority(aliveHainCount, alivePlayerCount) {
+    return aliveHainCount >= alivePlayerCount - aliveHainCount;
+}
+
+function getLoverVictoryResult(room, alivePlayers) {
+    const loverPair = room.loverPair || [];
+    const aliveLovers = loverPair.filter(playerId => alivePlayers.some(player => player.id === playerId));
+    if (aliveLovers.length !== 2 || alivePlayers.length > 3 || alivePlayers.some(player =>
+        NEUTRAL_ROLES.includes(player.role) && player.role !== 'Müttefik'
+    )) return null;
+
+    const hasLivingHain = alivePlayers.some(isHainPlayer);
+    return {
+        winner: hasLivingHain ? 'HAİNLER' : 'AŞIKLAR',
+        msg: '💗 Aşıklar birlikte hayatta kaldı ve kazandı!'
     };
 }
 
@@ -1749,20 +1770,11 @@ function checkWinCondition(roomCode) {
         return true;
     }
 
-    const loverPair = room.loverPair || [];
-    const aliveLovers = loverPair.filter(playerId => alivePlayers.some(player => player.id === playerId));
-    const nonNeutralPlayers = alivePlayers.filter(player => !NEUTRAL_ROLES.includes(player.role));
-    const nonLoverPlayers = alivePlayers.filter(player => !loverPair.includes(player.id));
-
-    const loverPairIncludesHain = loverPair.some(playerId => {
-        const player = room.players.find(candidate => candidate.id === playerId);
-        return isHainPlayer(player);
-    });
-
-    if (aliveLovers.length === 2 && alivePlayers.length === 2) {
+    const loverVictoryResult = getLoverVictoryResult(room, alivePlayers);
+    if (loverVictoryResult) {
         clearInterval(room.timer);
         sendGameState(roomCode);
-        emitGameOver(roomCode, withAdditionalWinners({ winner: loverPairIncludesHain ? 'HAİNLER' : 'AŞIKLAR', msg: '💗 Aşıklar birlikte hayatta kaldı ve kazandı!' }, room, alivePlayers));
+        emitGameOver(roomCode, withAdditionalWinners(loverVictoryResult, room, alivePlayers));
         return true;
     }
 
@@ -1814,10 +1826,7 @@ function checkWinCondition(roomCode) {
     // 5. Hainler Zaferi
     const allHainCount = aliveHain.length + aliveHainKoylu.length;
     if (allHainCount > 0 && aliveSK.length === 0 && aliveKundakci.length === 0) {
-        const additionalWinners = getAdditionalWinners(room, alivePlayers);
-        const winningAllyCount = additionalWinners.allyWon ? 1 : 0;
-        const nonHainCount = alivePlayers.length - allHainCount - winningAllyCount;
-        if (allHainCount >= nonHainCount && !baskanBlocksWin && !(aliveHainKoylu.length === 1 && aliveHainTeam.length === 1)) {
+        if (hasHainMajority(allHainCount, alivePlayers.length) && !baskanBlocksWin && !(aliveHainKoylu.length === 1 && aliveHainTeam.length === 1)) {
             clearInterval(room.timer);
             sendGameState(roomCode);
             emitGameOver(roomCode, withAdditionalWinners({ winner: 'HAİNLER', msg: '👹 Hainler kasabada çoğunluğu ele geçirdi ve kazandı!' }, room, alivePlayers));
@@ -1840,5 +1849,7 @@ module.exports = {
     buildWizardMorningMessage,
     canUseAdditionalNightAction,
     getAdditionalWinners,
-    withAdditionalWinners
+    withAdditionalWinners,
+    hasHainMajority,
+    getLoverVictoryResult
 };
