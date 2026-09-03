@@ -1543,7 +1543,7 @@ function calculateNightResult(roomCode) {
             killedList.push({ player: victim, killer: killerName, hiddenRole: hideRole });
             checkGunPass(room, victim);
 
-            if (killerName === 'Vigilante' && !attacker.isHain && !isHainPlayer(victim) && ![...ALL_HAIN_ROLES, 'Seri Katil'].includes(victim.role)) {
+            if (killerName === 'Vigilante' && !attacker.isHain && !isHainPlayer(victim) && !NEUTRAL_ROLES.includes(victim.role)) {
                 attacker.isAlive = false;
                 killedList.push({ player: attacker, killer: 'Vicdan Azabı (İntihar)', hiddenRole: false });
                 checkGunPass(room, attacker);
@@ -1597,7 +1597,7 @@ function calculateNightResult(roomCode) {
         const visitors = Object.entries(actions)
             .filter(([aId, act]) => act.targetId === gozcuTarget && !act.noVisit && aId !== gozcuActor.id)
             .map(([aId]) => room.players.find(p => p.id === aId))
-            .filter(p => p && p.role !== 'Seri Katil' && !(p.role === LOST_HAIN_ROLE && gozcuTarget === actions[p.id]?.targetId))
+            .filter(p => p && !NEUTRAL_ROLES.includes(p.role) && p.role !== 'Seri Katil' && !(p.role === LOST_HAIN_ROLE && gozcuTarget === actions[p.id]?.targetId))
             .map(p => p.username);
 
         const targetP = room.players.find(p => p.id === gozcuTarget);
@@ -1614,7 +1614,7 @@ function calculateNightResult(roomCode) {
         const targetP = room.players.find(p => p.id === ayakciTarget);
         let reportText = '';
 
-        if (visitedAct && !visitedAct.noVisit && visitedAct.targetId && targetP && targetP.role !== 'Seri Katil' && targetP.role !== LOST_HAIN_ROLE) {
+        if (visitedAct && !visitedAct.noVisit && visitedAct.targetId && targetP && !NEUTRAL_ROLES.includes(targetP.role) && targetP.role !== 'Seri Katil' && targetP.role !== LOST_HAIN_ROLE) {
             const destP = room.players.find(p => p.id === visitedAct.targetId);
             reportText = `👟 Ayakçı Raporu: ${targetP.username} bu gece ${destP ? destP.username : 'Bilinmeyen'} kişisinin evine gitti.`;
         } else {
