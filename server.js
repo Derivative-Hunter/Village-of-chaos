@@ -36,6 +36,7 @@ const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı',
 const LOST_HAIN_ROLE = 'Kayıp Hain';
 const HAIN_KOYLU_ROLE = 'Hain Köylü';
 const isHainPlayer = player => Boolean(player && (player.isHain || ALL_HAIN_ROLES.includes(player.role)));
+const isCountedHain = player => Boolean(isHainPlayer(player) && player.role !== LOST_HAIN_ROLE);
 const NON_VISITING_ROLES = ['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Jester'];
 const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', 'Jester', 'Hırsız'];
 
@@ -709,7 +710,7 @@ io.on('connection', (socket) => {
         if (!room || room.phase !== 'VOTE') return;
 
         const voter = room.players.find(p => p.id === socket.id);
-        if (voter && voter.isAlive) {
+        if (voter && voter.isAlive && voter.role !== LOST_HAIN_ROLE) {
             room.votes[socket.id] = targetId;
             const targetPlayer = room.players.find(p => p.id === targetId);
             const targetName = targetId === 'PAS' ? 'PAS' : (targetPlayer ? targetPlayer.username : 'Bilinmeyen');
@@ -864,7 +865,7 @@ function startPhase(roomCode, phase, seconds) {
 
 function isOnlyHainKoylu(room) {
     const alivePlayers = room.players.filter(player => player.isAlive);
-    const aliveHainTeam = alivePlayers.filter(isHainPlayer);
+    const aliveHainTeam = alivePlayers.filter(isCountedHain);
     const aliveHainKoylu = alivePlayers.filter(isHainKoyluPlayer);
     return aliveHainKoylu.length === 1 && aliveHainTeam.length === 1;
 }
@@ -1626,15 +1627,16 @@ function checkWinCondition(roomCode) {
     if (!room) return false;
 
     const alivePlayers = room.players.filter(p => p.isAlive);
-    const aliveHain = alivePlayers.filter(p => p.role && ALL_HAIN_ROLES.includes(p.role));
+    const aliveHain = alivePlayers.filter(p => p.role && ALL_HAIN_ROLES.includes(p.role) && p.role !== LOST_HAIN_ROLE);
+    const aliveLostHain = alivePlayers.filter(p => p.role === LOST_HAIN_ROLE);
     const aliveHainKoylu = alivePlayers.filter(isHainKoyluPlayer);
-    const aliveHainTeam = alivePlayers.filter(isHainPlayer);
+    const aliveHainTeam = alivePlayers.filter(isCountedHain);
     const aliveSK = alivePlayers.filter(p => p.role === 'Seri Katil');
     const aliveKundakci = alivePlayers.filter(p => p.role === 'Kundakçı');
     const aliveBaskan = alivePlayers.filter(p => p.role === 'Başkan');
 
     const baskanBlocksWin = aliveBaskan.length > 0;
-    const aliveEvils = [...aliveHain, ...aliveHainKoylu, ...aliveSK, ...aliveKundakci];
+    const aliveEvils = [...aliveHain, ...aliveHainKoylu, ...aliveLostHain, ...aliveSK, ...aliveKundakci];
     const loverPair = room.loverPair || [];
     const aliveLovers = loverPair.filter(playerId => alivePlayers.some(player => player.id === playerId));
     const nonNeutralPlayers = alivePlayers.filter(player => !NEUTRAL_ROLES.includes(player.role));

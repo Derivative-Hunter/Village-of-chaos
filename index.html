@@ -1191,7 +1191,7 @@
         } else if (phase === 'VOTE') {
             phaseTitle.innerText = `⚖️ OYLAMA (${timeLeft}s)`;
             phaseSubtext.innerText = selectedTargetName ? `Seçilen hedef: ${selectedTargetName}` : 'Seçilen hedef: Yok';
-            if (amIAlive) passBtn.classList.remove('hidden');
+            if (amIAlive && myRole !== 'Kayıp Hain') passBtn.classList.remove('hidden');
         } else if (phase === 'DEFENSE') {
             const defName = players.find(p => p.id === defendantId)?.username || 'Sanık';
             phaseTitle.innerText = `📢 SAVUNMA VAKTİ (${timeLeft}s)`;
@@ -1248,7 +1248,7 @@
                     if (amIAlive && isLover && phase === 'NIGHT' && p.id === loverPartnerId && !loverProtectUsed) {
                         loverProtectBtnHtml = `<button class="card-btn btn-action-purple" onclick="handleNightAction('${p.id}', 'LOVER_PROTECT')">💗 Aşığını Koru</button>`;
                     }
-                    if (phase === 'VOTE' && !isMe) {
+                    if (phase === 'VOTE' && !isMe && myRole !== 'Kayıp Hain') {
                         actionBtnHtml = `<button class="card-btn btn-action-yellow" onclick="handleVote('${p.id}')">🗳️ Oy Ver</button>`;
                     } else if (phase === 'NIGHT') {
                         if (!['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
