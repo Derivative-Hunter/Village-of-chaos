@@ -1701,12 +1701,9 @@ function getAdditionalWinners(room, alivePlayers) {
     const loverPair = room.loverPair || [];
     const aliveLovers = loverPair.filter(playerId => alivePlayers.some(player => player.id === playerId));
     const ally = room.players.find(player => player.role === 'Müttefik');
-    const hasLivingIncompatibleNeutral = alivePlayers.some(player =>
-        NEUTRAL_ROLES.includes(player.role) && player.role !== 'Müttefik'
-    );
 
     return {
-        loversWon: aliveLovers.length === 2 && !hasLivingIncompatibleNeutral,
+        loversWon: aliveLovers.length === 2,
         allyWon: Boolean(ally && ally.allyTargetId && alivePlayers.some(player => player.id === ally.allyTargetId)),
         loverPairIncludesHain: loverPair.some(playerId => {
             const player = room.players.find(candidate => candidate.id === playerId);
@@ -1718,7 +1715,8 @@ function getAdditionalWinners(room, alivePlayers) {
 function withAdditionalWinners(result, room, alivePlayers) {
     const additionalWinners = getAdditionalWinners(room, alivePlayers);
     const winnerNames = [result.winner];
-    if (additionalWinners.loversWon && !winnerNames.includes('AŞIKLAR')) winnerNames.push('AŞIKLAR');
+    const loversBlockedByWinner = ['KUNDAKÇI', 'SERİ KATİL', 'JESTER'].some(winner => result.winner.includes(winner));
+    if (additionalWinners.loversWon && !loversBlockedByWinner && !winnerNames.includes('AŞIKLAR')) winnerNames.push('AŞIKLAR');
     if (additionalWinners.allyWon && !winnerNames.includes('MÜTTEFİK')) winnerNames.push('MÜTTEFİK');
 
     return {
@@ -1736,9 +1734,8 @@ function hasHainMajority(aliveHainCount, alivePlayerCount) {
 function getLoverVictoryResult(room, alivePlayers) {
     const loverPair = room.loverPair || [];
     const aliveLovers = loverPair.filter(playerId => alivePlayers.some(player => player.id === playerId));
-    if (aliveLovers.length !== 2 || alivePlayers.length > 3 || alivePlayers.some(player =>
-        NEUTRAL_ROLES.includes(player.role) && player.role !== 'Müttefik'
-    )) return null;
+    if (aliveLovers.length !== 2 || alivePlayers.length > 3) return null;
+    if (alivePlayers.some(player => ['Kundakçı', 'Seri Katil', 'Jester'].includes(player.role))) return null;
 
     const hasLivingHain = alivePlayers.some(isHainPlayer);
     return {
