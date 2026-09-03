@@ -1682,7 +1682,7 @@ function checkWinCondition(roomCode) {
     }
 
     // 3. Kundakçı Zaferi
-    if (aliveKundakci.length > 0 && aliveHain.length === 0 && aliveSK.length === 0 && alivePlayers.length <= 2) {
+    if (aliveKundakci.length > 0 && aliveLostHain.length === 0 && aliveHain.length === 0 && aliveSK.length === 0 && alivePlayers.length <= 2) {
         clearInterval(room.timer);
         sendGameState(roomCode);
         io.to(roomCode).emit('gameOver', { winner: 'KUNDAKÇI', msg: '🔥 Kundakçı köyü küle çevirdi ve tek başına kazandı!' });
@@ -1690,7 +1690,7 @@ function checkWinCondition(roomCode) {
     }
 
     // 4. Seri Katil Zaferi
-    if (aliveSK.length > 0 && aliveHain.length === 0 && aliveKundakci.length === 0) {
+    if (aliveSK.length > 0 && aliveLostHain.length === 0 && aliveHain.length === 0 && aliveKundakci.length === 0) {
         const othersCount = alivePlayers.length - aliveSK.length;
         if (aliveSK.length >= othersCount && !baskanBlocksWin) {
             clearInterval(room.timer);
