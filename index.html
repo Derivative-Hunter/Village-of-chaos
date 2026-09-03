@@ -713,7 +713,7 @@
             <div class="role-category neutral">
                 <h5>⚖️ Tarafsız · Normal Tarafsızlar</h5>
                 <div class="setting-grid">
-                    <div class="setting-item"><label>Rol sayısı (Jester / Hırsız):</label><input type="number" id="cfg-normal-tarafsiz" value="0" min="0" max="2" onchange="emitSettings()"></div>
+                    <div class="setting-item"><label>Rol sayısı (Jester / Hırsız / Müttefik):</label><input type="number" id="cfg-normal-tarafsiz" value="0" min="0" max="3" onchange="emitSettings()"></div>
                 </div>
             </div>
         </div>
@@ -748,6 +748,7 @@
                 <div class="setting-item"><label>Seri Katil</label><input type="number" id="cfg-role-seri-katil" data-role="Seri Katil" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Jester</label><input type="number" id="cfg-role-jester" data-role="Jester" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Hırsız</label><input type="number" id="cfg-role-hirsiz" data-role="Hırsız" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Müttefik</label><input type="number" id="cfg-role-muttefik" data-role="Müttefik" value="0" min="0" max="5" onchange="emitSettings()"></div>
             </div>
         </div>
 
@@ -941,6 +942,7 @@
         <div class="role-list-item neutral"><strong>🔪 Seri Katil:</strong> Her gece bir oyuncuya saldırır ve diğer tehditler yokken çoğunluğa ulaşarak kazanmaya çalışır. Silahlı Hain ile karşılıklı saldırıda önceliği vardır.</div>
         <div class="role-list-item neutral"><strong>🔥 Kundakçı:</strong> Geceleri bir oyuncuyu gizlice yağlar; yağlanan evleri ve o evlere gidenleri ateşe verir. Yağlarken gelen Seri Katil veya Gizleyici saldırısı Kundakçıyı öldürür; Kundakçı yakıyorsa karşılıklı saldırıda hayatta kalır ve Gizleyici veya Seri Katil ölür.</div>
         <div class="role-list-item neutral"><strong>🎭 Hırsız:</strong> Gündüz yaşayan bir oyuncuyu öldürür ve onun rolünü çalar.</div>
+        <div class="role-list-item neutral"><strong>🤝 Müttefik:</strong> İlk gece bir oyuncu seçer; seçim yapmazsa rastgele bir oyuncu belirlenir. Seçtiği kişiyi ilk gece dahil toplam iki kez saldırılardan korur. Müttefiki oyun sonunda hayattaysa kendisi de kazanır.</div>
         <button class="btn-gold" style="margin-top: 15px;" onclick="closeRoleModal()">Kapat</button>
     </div>
 </div>
@@ -1138,7 +1140,7 @@
         badge.innerText = role;
         if (isHain || (role && ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'].includes(role))) {
             badge.className = 'role-pill Hain';
-        } else if (['Seri Katil', 'Jester', 'Hırsız', 'Kundakçı'].includes(role)) {
+        } else if (['Seri Katil', 'Jester', 'Hırsız', 'Kundakçı', 'Müttefik'].includes(role)) {
             badge.className = 'role-pill Neutral';
         } else {
             badge.className = 'role-pill Town';
@@ -1152,7 +1154,7 @@
         loadNotes();
     });
 
-    socket.on('gameStateUpdate', ({ players, wizardTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed }) => {
+    socket.on('gameStateUpdate', ({ players, wizardTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses }) => {
         latestPlayers = players;
         const phaseTitle = document.getElementById('phase-title');
         const phaseSubtext = document.getElementById('phase-subtext');
@@ -1254,6 +1256,7 @@
                         if (!['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
                             let btnLabel = '🎯 Eylem';
                             if (myRole === 'Doktor') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
+                            else if (myRole === 'Müttefik') btnLabel = dayNumber === 1 ? '🤝 Müttefikini Seç' : '🛡️ Müttefikini Koru';
                             else if (['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain', 'Kayıp Hain'].includes(myRole) || (myRole === 'Büyücü Hain' && hasGun)) btnLabel = '🎯 Saldır';
                             else if (myRole === 'Gölge Ajanı') btnLabel = hasGun ? '🎯 Saldır' : '🌑 Rolünü Öğren';
                             else if (myRole === 'Kahin Köylü') btnLabel = '🔮 İncele';
@@ -1278,8 +1281,12 @@
                                 if (isMe && jesterShield > 0) {
                                     actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">${btnLabel}</button>`;
                                 }
-                            } else if (!isMe || myRole === 'Doktor') {
+                            } else if (!isMe || myRole === 'Doktor' || (myRole === 'Müttefik' && dayNumber === 1)) {
+                                if (myRole === 'Müttefik' && dayNumber > 1 && (allyTargetId !== p.id || allyProtectUses >= 2)) {
+                                    actionBtnHtml = '';
+                                } else {
                                 actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">${btnLabel}</button>`;
+                                }
                             }
                         }
                     }

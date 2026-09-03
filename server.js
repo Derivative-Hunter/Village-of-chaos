@@ -28,7 +28,7 @@ const ROLE_CATEGORIES = {
     },
     neutral: {
         'Silahlı Tarafsızlar': ['Kundakçı', 'Seri Katil'],
-        'Normal Tarafsızlar': ['Jester', 'Hırsız']
+        'Normal Tarafsızlar': ['Jester', 'Hırsız', 'Müttefik']
     }
 };
 
@@ -38,7 +38,7 @@ const HAIN_KOYLU_ROLE = 'Hain Köylü';
 const isHainPlayer = player => Boolean(player && (player.isHain || ALL_HAIN_ROLES.includes(player.role)));
 const isCountedHain = player => Boolean(isHainPlayer(player) && player.role !== LOST_HAIN_ROLE);
 const NON_VISITING_ROLES = ['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Jester'];
-const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', 'Jester', 'Hırsız'];
+const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', 'Jester', 'Hırsız', 'Müttefik'];
 
 const roleNames = group => Object.values(group).flat();
 const TOWN_ROLES = ['Düz Köylü', ...roleNames(ROLE_CATEGORIES.town)];
@@ -92,7 +92,9 @@ function createBotPlayer(index) {
         ninjaUsed: false,
         isLover: false,
         loverPartnerId: null,
-        loverProtectUsed: false
+        loverProtectUsed: false,
+        allyTargetId: null,
+        allyProtectUses: 0
     };
 }
 
@@ -265,7 +267,9 @@ function sendGameState(roomCode) {
             ninjaUsed: player.ninjaUsed,
             isLover: player.isLover,
             loverPartnerId: player.loverPartnerId,
-            loverProtectUsed: player.loverProtectUsed || room.loverShieldUsed
+            loverProtectUsed: player.loverProtectUsed || room.loverShieldUsed,
+            allyTargetId: player.role === 'Müttefik' ? player.allyTargetId : null,
+            allyProtectUses: player.role === 'Müttefik' ? player.allyProtectUses : 0
         });
     });
 }
@@ -336,7 +340,9 @@ io.on('connection', (socket) => {
                 ninjaUsed: false,
                 isLover: false,
                 loverPartnerId: null,
-                loverProtectUsed: false
+                loverProtectUsed: false,
+                allyTargetId: null,
+                allyProtectUses: 0
         };
         rooms[roomCode].players.push(player);
 
@@ -375,7 +381,9 @@ io.on('connection', (socket) => {
             ninjaUsed: false,
             isLover: false,
             loverPartnerId: null,
-            loverProtectUsed: false
+            loverProtectUsed: false,
+            allyTargetId: null,
+            allyProtectUses: 0
         };
 
         room.players.push(player);
@@ -435,6 +443,8 @@ io.on('connection', (socket) => {
             p.isLover = false;
             p.loverPartnerId = null;
             p.loverProtectUsed = false;
+            p.allyTargetId = null;
+            p.allyProtectUses = 0;
             p.ninjaUsed = false;
         });
         room.hunterStand = null;
@@ -743,6 +753,15 @@ io.on('connection', (socket) => {
             }
             if (['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Avcı Köylü'].includes(actor.role)) return;
             if (actor.role === 'Hırsız') return socket.emit('errorMsg', 'Hırsız gece eylemi yapamaz!');
+            if (actor.role === 'Müttefik') {
+                const target = room.players.find(player => player.id === targetId && player.isAlive);
+                if (!target) return socket.emit('errorMsg', 'Yalnızca yaşayan bir oyuncuyu seçebilirsin!');
+                if (room.dayNumber === 1 && actor.allyTargetId) return socket.emit('errorMsg', 'Müttefikini zaten seçtin!');
+                if (room.dayNumber > 1 && (!actor.allyTargetId || actor.allyTargetId !== targetId)) {
+                    return socket.emit('errorMsg', 'Yalnızca seçtiğin müttefikini koruyabilirsin!');
+                }
+                if (actor.allyProtectUses >= 2) return socket.emit('errorMsg', 'Müttefikini koruma hakkın kalmadı!');
+            }
             if (actor.role === 'Büyücü Hain' && !actor.hasGun) {
                 return socket.emit('errorMsg', 'Silahın yoksa Büyücü Hain olarak saldırı yapamazsın; büyü gücünü kullanmalısın!');
             }
@@ -891,7 +910,7 @@ function endHainKoyluGame(roomCode) {
 
     clearInterval(room.timer);
     sendGameState(roomCode);
-    io.to(roomCode).emit('gameOver', { winner: 'HAİN KÖYLÜ', msg: `🎉 ${winner.username} hain köylü olarak üç günlük sayacı tamamladı ve kazandı!` });
+    emitGameOver(roomCode, { winner: 'HAİN KÖYLÜ', msg: `🎉 ${winner.username} hain köylü olarak üç günlük sayacı tamamladı ve kazandı!` });
     return true;
 }
 
@@ -978,6 +997,10 @@ function addBotNightActions(room) {
             bot.role === 'Gözcü' || bot.role === 'Ayakçı' || bot.role === 'Kahin Köylü' ||
             bot.role === 'Gölge Ajanı' || bot.role === 'Düzenbaz Köylü') {
             target = chooseTarget(bot);
+        } else if (bot.role === 'Müttefik') {
+            target = bot.allyTargetId
+                ? alivePlayers.find(player => player.id === bot.allyTargetId && player.isAlive)
+                : chooseTarget(bot);
         } else if (bot.role === 'Vigilante' && bot.ammo > 0) {
             target = chooseTarget(bot);
         } else if (bot.role === 'Seri Katil' ||
@@ -1107,7 +1130,7 @@ function evaluateJudgmentResult(roomCode) {
             if (defendant.role === 'Jester') {
                 clearInterval(room.timer);
                 sendGameState(roomCode);
-                io.to(roomCode).emit('gameOver', { winner: 'JESTER', msg: `🎉 ${defendant.username} kendini astırmayı başardı ve Jester olarak kazandı!` });
+                emitGameOver(roomCode, { winner: 'JESTER', msg: `🎉 ${defendant.username} kendini astırmayı başardı ve Jester olarak kazandı!` });
                 return;
             }
         }
@@ -1174,6 +1197,17 @@ function calculateNightResult(roomCode) {
         }
     });
 
+    // İlk gece seçim yapılmazsa Müttefik için yaşayan rastgele bir hedef belirle.
+    if (room.dayNumber === 1) {
+        room.players.filter(player => player.isAlive && player.role === 'Müttefik').forEach(ally => {
+            if (!actions[ally.id]) {
+                const targets = room.players.filter(player => player.isAlive);
+                const target = targets[Math.floor(Math.random() * targets.length)];
+                if (target) actions[ally.id] = { role: ally.role, targetId: target.id };
+            }
+        });
+    }
+
     Object.entries(actions).forEach(([actorId, act]) => {
         if (act.actionType !== 'WIZARD') return;
         const controlled = room.players.find(p => p.id === act.controlledId);
@@ -1196,6 +1230,7 @@ function calculateNightResult(roomCode) {
     });
 
     let docTarget = null, docActor = null;
+    let allyProtectTarget = null;
     let loverProtectTarget = null;
     let skTarget = null;
     let hainTarget = null, hainActor = null;
@@ -1303,6 +1338,15 @@ function calculateNightResult(roomCode) {
             killPerformerIds.add(actorId);
         }
         else if (actor.role === 'Doktor') { docTarget = act.targetId; docActor = actor; }
+        else if (actor.role === 'Müttefik') {
+            const target = room.players.find(player => player.id === act.targetId && player.isAlive);
+            if (!target || actor.allyProtectUses >= 2) return;
+            if (room.dayNumber > 1 && actor.allyTargetId !== target.id) return;
+            actor.allyTargetId = target.id;
+            actor.allyProtectUses++;
+            allyProtectTarget = target.id;
+            io.to(actor.id).emit('chatMessage', { sender: '[MÜTTEFİK]', text: `${target.username} adlı kişiyi korudun. Koruma hakkın: ${2 - actor.allyProtectUses}`, type: 'green' });
+        }
         else if (actor.role === 'Gölge Ajanı' && !actor.hasGun) { shadowTarget = act.targetId; shadowActor = actor; }
         else if (actor.role === 'Kahin Köylü') { kahinTarget = act.targetId; kahinActor = actor; }
         else if (actor.role === 'Seri Katil') { skTarget = act.targetId; killPerformerIds.add(actorId); }
@@ -1454,10 +1498,11 @@ function calculateNightResult(roomCode) {
         }
 
         let protectedByDoc = (docTarget === targetId);
+        let protectedByAlly = (allyProtectTarget === targetId);
         let protectedByLover = (loverProtectTarget === targetId);
         let protectedByJester = (victim.role === 'Jester' && victim.jesterShieldProtected);
 
-        if (protectedByDoc || protectedByLover || protectedByJester) {
+        if (protectedByDoc || protectedByAlly || protectedByLover || protectedByJester) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
             io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: 'Hedefinizi öldüremediniz.', type: 'green' });
             if (protectedByJester) {
@@ -1622,6 +1667,14 @@ function propagateLoverDeaths(room, killedList = null) {
     }
 }
 
+function emitGameOver(roomCode, result) {
+    const room = rooms[roomCode];
+    const allyWon = room && room.players.some(player => player.role === 'Müttefik' && player.isAlive && player.allyTargetId && room.players.some(target => target.id === player.allyTargetId && target.isAlive));
+    io.to(roomCode).emit('gameOver', allyWon
+        ? { winner: `${result.winner} VE MÜTTEFİK`, msg: `${result.msg} 🤝 Müttefik de kazandı!` }
+        : result);
+}
+
 function checkWinCondition(roomCode) {
     const room = rooms[roomCode];
     if (!room) return false;
@@ -1641,7 +1694,7 @@ function checkWinCondition(roomCode) {
     if (aliveLostHain.length === 1 && alivePlayers.length === 1) {
         clearInterval(room.timer);
         sendGameState(roomCode);
-        io.to(roomCode).emit('gameOver', { winner: 'KAYIP HAİN', msg: '🕳️ Kayıp Hain herkesten uzun hayatta kaldı ve kazandı!' });
+        emitGameOver(roomCode, { winner: 'KAYIP HAİN', msg: '🕳️ Kayıp Hain herkesten uzun hayatta kaldı ve kazandı!' });
         return true;
     }
 
@@ -1659,7 +1712,7 @@ function checkWinCondition(roomCode) {
         clearInterval(room.timer);
         sendGameState(roomCode);
         const winner = loverPairIncludesHain ? 'HAİNLER VE AŞIKLAR' : 'AŞIKLAR';
-        io.to(roomCode).emit('gameOver', { winner, msg: '💗 Aşıklar birlikte hayatta kaldı ve kazandı!' });
+        emitGameOver(roomCode, { winner, msg: '💗 Aşıklar birlikte hayatta kaldı ve kazandı!' });
         return true;
     }
 
@@ -1677,7 +1730,7 @@ function checkWinCondition(roomCode) {
     if (alivePlayers.length === 0) {
         clearInterval(room.timer);
         sendGameState(roomCode);
-        io.to(roomCode).emit('gameOver', { winner: 'BERABERE', msg: '🤝 Herkes öldü! Oyun berabere sonuçlandı.' });
+        emitGameOver(roomCode, { winner: 'BERABERE', msg: '🤝 Herkes öldü! Oyun berabere sonuçlandı.' });
         return true;
     }
 
@@ -1685,7 +1738,7 @@ function checkWinCondition(roomCode) {
     if (aliveEvils.length === 0) {
         clearInterval(room.timer);
         sendGameState(roomCode);
-        io.to(roomCode).emit('gameOver', { winner: aliveLovers.length === 2 ? 'KASABA VE AŞIKLAR' : 'KASABA', msg: '🎉 Bütün hainler ve tehditler yok edildi! Kasaba kazandı!' });
+        emitGameOver(roomCode, { winner: aliveLovers.length === 2 ? 'KASABA VE AŞIKLAR' : 'KASABA', msg: '🎉 Bütün hainler ve tehditler yok edildi! Kasaba kazandı!' });
         return true;
     }
 
@@ -1693,7 +1746,7 @@ function checkWinCondition(roomCode) {
     if (aliveKundakci.length > 0 && aliveLostHain.length === 0 && aliveHain.length === 0 && aliveSK.length === 0 && alivePlayers.length <= 2) {
         clearInterval(room.timer);
         sendGameState(roomCode);
-        io.to(roomCode).emit('gameOver', { winner: 'KUNDAKÇI', msg: '🔥 Kundakçı köyü küle çevirdi ve tek başına kazandı!' });
+        emitGameOver(roomCode, { winner: 'KUNDAKÇI', msg: '🔥 Kundakçı köyü küle çevirdi ve tek başına kazandı!' });
         return true;
     }
 
@@ -1703,7 +1756,7 @@ function checkWinCondition(roomCode) {
         if (aliveSK.length >= othersCount && !baskanBlocksWin) {
             clearInterval(room.timer);
             sendGameState(roomCode);
-            io.to(roomCode).emit('gameOver', { winner: 'SERİ KATİL', msg: '🔪 Seri Katil köydeki herkesi avladı ve kazandı!' });
+            emitGameOver(roomCode, { winner: 'SERİ KATİL', msg: '🔪 Seri Katil köydeki herkesi avladı ve kazandı!' });
             return true;
         }
     }
@@ -1719,7 +1772,7 @@ function checkWinCondition(roomCode) {
             const message = aliveLovers.length === 2
                 ? '💗 Aşıklar hayatta kaldı ve hainlerle birlikte kazandı!'
                 : '👹 Hainler kasabada çoğunluğu ele geçirdi ve kazandı!';
-            io.to(roomCode).emit('gameOver', { winner, msg: message });
+            emitGameOver(roomCode, { winner, msg: message });
             return true;
         }
     }
