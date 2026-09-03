@@ -22,7 +22,7 @@ const ROLE_CATEGORIES = {
         'Araştırmacı Köylüler': ['Ayakçı', 'Gözcü', 'Medyum', 'Casus', 'Kahin Köylü']
     },
     hain: {
-        'Silahlı Hainler': ['Gizleyici', 'Düz Hain', 'Ninja Hain', 'Kayıp Hain'],
+        'Silahlı Hainler': ['Gizleyici', 'Ninja Hain', 'Kayıp Hain'],
         'Destekçi Hainler': ['Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Duyucu Hain'],
         'Hain Köylü': ['Hain Köylü']
     },
@@ -45,6 +45,7 @@ const TOWN_ROLES = ['Düz Köylü', ...roleNames(ROLE_CATEGORIES.town)];
 const CONFIGURABLE_ROLE_NAMES = [
     ...roleNames(ROLE_CATEGORIES.town),
     ...roleNames(ROLE_CATEGORIES.hain).filter(role => role !== HAIN_KOYLU_ROLE),
+    'Düz Hain',
     ...roleNames(ROLE_CATEGORIES.neutral),
     'Düz Köylü'
 ];
@@ -139,7 +140,7 @@ function assignCategoryRoles(room, shuffledPlayers, startIndex, categoryRoles, r
 function assignHainKoyluRoles(room, shuffledPlayers, startIndex, requestedCount, usedRoles) {
     const availablePlayers = Math.max(0, shuffledPlayers.length - startIndex);
     const count = Math.min(Math.max(0, parseInt(requestedCount) || 0), availablePlayers);
-    const availableRoles = TOWN_ROLES.filter(role => !usedRoles.has(role));
+    const availableRoles = TOWN_ROLES.filter(role => role !== 'Düz Köylü' && !usedRoles.has(role));
 
     shuffle(availableRoles).slice(0, count).forEach((roleName, offset) => {
         const player = room.players.find(player => player.id === shuffledPlayers[startIndex + offset].id);
@@ -159,7 +160,11 @@ function assignHainKoyluRoles(room, shuffledPlayers, startIndex, requestedCount,
 
 function assignConfiguredRoles(room, shuffledPlayers, roleCounts, usedRoles) {
     const configuredRoles = CONFIGURABLE_ROLE_NAMES.flatMap(roleName =>
-        Array.from({ length: Math.min(1, Math.max(0, parseInt(roleCounts[roleName]) || 0)) }, () => roleName)
+        Array.from({
+            length: ['Düz Köylü', 'Düz Hain'].includes(roleName)
+                ? Math.max(0, parseInt(roleCounts[roleName]) || 0)
+                : Math.min(1, Math.max(0, parseInt(roleCounts[roleName]) || 0))
+        }, () => roleName)
     );
     const selectedRoles = shuffle(configuredRoles).slice(0, shuffledPlayers.length);
 
