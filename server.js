@@ -572,6 +572,10 @@ io.on('connection', (socket) => {
 
         actor.role = stolenRole;
         actor.isHain = Boolean(target.isHain);
+        if (stolenRole === 'Müttefik') {
+            actor.allyTargetId = target.allyTargetId === target.id ? actor.id : target.allyTargetId;
+            actor.allyProtectUses = target.allyProtectUses;
+        }
         actor.ammo = stolenRole === 'Vigilante' && actor.isHain ? 2 : (stolenRole === 'Vigilante' ? 2 : 0);
         actor.hasGun = false;
         if (target.isDoused) {
@@ -1181,7 +1185,7 @@ function calculateNightResult(roomCode) {
         const target = room.players.find(p => p.id === act.targetId);
         if (!target) return;
 
-        if (target.role === 'Seri Katil' || target.role === LOST_HAIN_ROLE) {
+        if (target.role === 'Seri Katil' || target.role === LOST_HAIN_ROLE || target.role === 'Kundakçı') {
             io.to(actor.id).emit('chatMessage', { sender: '[UYUTUCU]', text: '💤 Eylemin işlemedi.', type: 'green' });
             return;
         }
