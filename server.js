@@ -1680,9 +1680,38 @@ function propagateLoverDeaths(room, killedList = null) {
 function emitGameOver(roomCode, result) {
     const room = rooms[roomCode];
     const allyWon = room && room.players.some(player => player.role === 'Müttefik' && player.isAlive && player.allyTargetId && room.players.some(target => target.id === player.allyTargetId && target.isAlive));
-    io.to(roomCode).emit('gameOver', allyWon
+    io.to(roomCode).emit('gameOver', allyWon && !result.winner.includes('MÜTTEFİK')
         ? { winner: `${result.winner} VE MÜTTEFİK`, msg: `${result.msg} 🤝 Müttefik de kazandı!` }
         : result);
+}
+
+function getAdditionalWinners(room, alivePlayers) {
+    const loverPair = room.loverPair || [];
+    const aliveLovers = loverPair.filter(playerId => alivePlayers.some(player => player.id === playerId));
+    const ally = alivePlayers.find(player => player.role === 'Müttefik');
+
+    return {
+        loversWon: aliveLovers.length === 2,
+        allyWon: Boolean(ally && ally.allyTargetId && alivePlayers.some(player => player.id === ally.allyTargetId)),
+        loverPairIncludesHain: loverPair.some(playerId => {
+            const player = room.players.find(candidate => candidate.id === playerId);
+            return isHainPlayer(player);
+        })
+    };
+}
+
+function withAdditionalWinners(result, room, alivePlayers) {
+    const additionalWinners = getAdditionalWinners(room, alivePlayers);
+    const winnerNames = [result.winner];
+    if (additionalWinners.loversWon && !winnerNames.includes('AŞIKLAR')) winnerNames.push('AŞIKLAR');
+    if (additionalWinners.allyWon && !winnerNames.includes('MÜTTEFİK')) winnerNames.push('MÜTTEFİK');
+
+    return {
+        winner: winnerNames.join(' VE '),
+        msg: additionalWinners.loversWon && !result.msg.includes('Aşıklar')
+            ? `${result.msg} 💗 Aşıklar da kazandı!`
+            : result.msg
+    };
 }
 
 function checkWinCondition(roomCode) {
@@ -1704,7 +1733,7 @@ function checkWinCondition(roomCode) {
     if (aliveLostHain.length === 1 && alivePlayers.length === 1) {
         clearInterval(room.timer);
         sendGameState(roomCode);
-        emitGameOver(roomCode, { winner: 'KAYIP HAİN', msg: '🕳️ Kayıp Hain herkesten uzun hayatta kaldı ve kazandı!' });
+        emitGameOver(roomCode, withAdditionalWinners({ winner: 'KAYIP HAİN', msg: '🕳️ Kayıp Hain herkesten uzun hayatta kaldı ve kazandı!' }, room, alivePlayers));
         return true;
     }
 
@@ -1721,8 +1750,7 @@ function checkWinCondition(roomCode) {
     if (aliveLovers.length === 2 && alivePlayers.length === 2) {
         clearInterval(room.timer);
         sendGameState(roomCode);
-        const winner = loverPairIncludesHain ? 'HAİNLER VE AŞIKLAR' : 'AŞIKLAR';
-        emitGameOver(roomCode, { winner, msg: '💗 Aşıklar birlikte hayatta kaldı ve kazandı!' });
+        emitGameOver(roomCode, withAdditionalWinners({ winner: loverPairIncludesHain ? 'HAİNLER' : 'AŞIKLAR', msg: '💗 Aşıklar birlikte hayatta kaldı ve kazandı!' }, room, alivePlayers));
         return true;
     }
 
@@ -1748,7 +1776,7 @@ function checkWinCondition(roomCode) {
     if (aliveEvils.length === 0) {
         clearInterval(room.timer);
         sendGameState(roomCode);
-        emitGameOver(roomCode, { winner: aliveLovers.length === 2 ? 'KASABA VE AŞIKLAR' : 'KASABA', msg: '🎉 Bütün hainler ve tehditler yok edildi! Kasaba kazandı!' });
+        emitGameOver(roomCode, withAdditionalWinners({ winner: 'KASABA', msg: '🎉 Bütün hainler ve tehditler yok edildi! Kasaba kazandı!' }, room, alivePlayers));
         return true;
     }
 
@@ -1774,15 +1802,13 @@ function checkWinCondition(roomCode) {
     // 5. Hainler Zaferi
     const allHainCount = aliveHain.length + aliveHainKoylu.length;
     if (allHainCount > 0 && aliveSK.length === 0 && aliveKundakci.length === 0) {
-        const nonHainCount = alivePlayers.length - allHainCount;
+        const additionalWinners = getAdditionalWinners(room, alivePlayers);
+        const winningAllyCount = additionalWinners.allyWon ? 1 : 0;
+        const nonHainCount = alivePlayers.length - allHainCount - winningAllyCount;
         if (allHainCount >= nonHainCount && !baskanBlocksWin && !(aliveHainKoylu.length === 1 && aliveHainTeam.length === 1)) {
             clearInterval(room.timer);
             sendGameState(roomCode);
-            const winner = aliveLovers.length === 2 ? 'HAİNLER VE AŞIKLAR' : 'HAİNLER';
-            const message = aliveLovers.length === 2
-                ? '💗 Aşıklar hayatta kaldı ve hainlerle birlikte kazandı!'
-                : '👹 Hainler kasabada çoğunluğu ele geçirdi ve kazandı!';
-            emitGameOver(roomCode, { winner, msg: message });
+            emitGameOver(roomCode, withAdditionalWinners({ winner: 'HAİNLER', msg: '👹 Hainler kasabada çoğunluğu ele geçirdi ve kazandı!' }, room, alivePlayers));
             return true;
         }
     }
@@ -1800,5 +1826,7 @@ if (require.main === module) {
 
 module.exports = {
     buildWizardMorningMessage,
-    canUseAdditionalNightAction
+    canUseAdditionalNightAction,
+    getAdditionalWinners,
+    withAdditionalWinners
 };
