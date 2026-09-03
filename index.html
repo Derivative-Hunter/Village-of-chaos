@@ -825,6 +825,7 @@
 
         <button id="arso-ignite-btn" class="btn-danger hidden" style="width:200px; margin-top:8px;" onclick="handleNightAction('IGNITE')">🔥 HERKESİ YAK (Ateşle)</button>
         <button id="vigilante-pass-btn" class="btn-gold hidden" style="width:220px; margin-top:8px;" onclick="passNightAction()">↩️ Saldırıyı İptal Et</button>
+        <button id="night-action-pass-btn" class="btn-gold hidden" style="width:220px; margin-top:8px;" onclick="passNightAction()">↩️ Gece Eylemini İptal Et</button>
         <div id="wizard-tools" class="night-role-tools hidden">
             <select id="wizard-power-select" aria-label="Kontrol edilecek kişi"></select>
             <select id="wizard-target-select" aria-label="Yönlendirilecek hedef"></select>
@@ -1166,6 +1167,7 @@
         const judgmentBar = document.getElementById('judgment-bar');
         const arsoBtn = document.getElementById('arso-ignite-btn');
         const vigilantePassBtn = document.getElementById('vigilante-pass-btn');
+        const nightActionPassBtn = document.getElementById('night-action-pass-btn');
         const wizardTools = document.getElementById('wizard-tools');
         const duyucuTools = document.getElementById('duyucu-tools');
         const duyucuLoverChatBtn = document.getElementById('duyucu-lover-chat-btn');
@@ -1180,6 +1182,7 @@
         judgmentBar.classList.add('hidden');
         arsoBtn.classList.add('hidden');
         vigilantePassBtn.classList.add('hidden');
+        nightActionPassBtn.classList.add('hidden');
         wizardTools.classList.add('hidden');
         duyucuTools.classList.add('hidden');
         duyucuLoverChatBtn.classList.add('hidden');
@@ -1223,6 +1226,7 @@
             if (isLover && amIAlive && myRole !== 'Duyucu Hain') loverTools.classList.remove('hidden');
             if (isLover && isHain && amIAlive && myRole !== 'Duyucu Hain' && myRole !== 'Kayıp Hain') loverHainChatBtn.classList.remove('hidden');
             if (myRole === 'Vigilante' && amIAlive) vigilantePassBtn.classList.remove('hidden');
+            if ((myRole === 'Jester' || myRole === 'Müttefik') && amIAlive) nightActionPassBtn.classList.remove('hidden');
         }
 
         const grid = document.getElementById('player-grid');
@@ -1283,7 +1287,7 @@
                             // Jester Kalkanı Kullanıldıysa Buton Kapansın!
                             } else if (myRole === 'Jester') {
                                 if (isMe && jesterShield > 0) {
-                                    actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">${btnLabel}</button>`;
+                                    actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}', 'JESTER_SHIELD')">${btnLabel}</button>`;
                                 }
                             } else if (!isMe || myRole === 'Doktor' || (myRole === 'Müttefik' && (dayNumber === 1 || allyTargetId === p.id))) {
                                 if (myRole === 'Müttefik' && dayNumber > 1 && (allyTargetId !== p.id || allyProtectUses >= 2)) {

@@ -758,7 +758,12 @@ io.on('connection', (socket) => {
         const actor = room.players.find(p => p.id === socket.id);
         if (actor && actor.isAlive) {
             if (actionType === 'PASS') {
+                const existingAction = room.nightActions[socket.id];
+                if (actor.role === 'Jester' && existingAction?.actionType === 'JESTER_SHIELD') {
+                    actor.jesterShield = Math.min(1, actor.jesterShield + 1);
+                }
                 delete room.nightActions[socket.id];
+                room.nightActionPasses[socket.id] = true;
                 return socket.emit('actionConfirmed', { targetId: null, targetName: 'Saldırı iptal edildi' });
             }
             if (['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Avcı Köylü'].includes(actor.role)) return;
@@ -771,6 +776,10 @@ io.on('connection', (socket) => {
                     return socket.emit('errorMsg', 'Yalnızca seçtiğin müttefikini koruyabilirsin!');
                 }
                 if (actor.allyProtectUses >= 2) return socket.emit('errorMsg', 'Müttefikini koruma hakkın kalmadı!');
+            }
+            if (actor.role === 'Jester') {
+                if (actionType !== 'JESTER_SHIELD' || targetId !== actor.id) return socket.emit('errorMsg', 'Jester yalnızca kendi evinde kalkan açabilir!');
+                if (actor.jesterShield <= 0) return socket.emit('errorMsg', 'Kalkan hakkın kalmadı!');
             }
             if (actor.role === 'Büyücü Hain' && !actor.hasGun) {
                 return socket.emit('errorMsg', 'Silahın yoksa Büyücü Hain olarak saldırı yapamazsın; büyü gücünü kullanmalısın!');
@@ -803,6 +812,7 @@ io.on('connection', (socket) => {
             
             if (!room.nightActions) room.nightActions = {};
             if (actor.role === 'Ninja Hain' && actionType === 'NINJA') actor.ninjaUsed = true;
+            if (actor.role === 'Jester') actor.jesterShield--;
             room.nightActions[socket.id] = { role: actor.role, targetId, actionType };
 
             const targetPlayer = room.players.find(p => p.id === targetId);
@@ -994,6 +1004,8 @@ function addBotNightActions(room) {
             }
         } else if (bot.role === 'Jester') {
             target = bot;
+            actionType = 'JESTER_SHIELD';
+            bot.jesterShield = 0;
         } else if (bot.role === 'Kayıp Hain') {
             target = chooseTarget(bot);
         } else if (bot.role === 'Kundakçı') {
@@ -1166,6 +1178,7 @@ function evaluateJudgmentResult(roomCode) {
 function goToNight(roomCode) {
     const room = rooms[roomCode];
     room.nightActions = {};
+    room.nightActionPasses = {};
     room.players.forEach(player => {
         player.shadowRole = null;
     });
@@ -1392,8 +1405,8 @@ function calculateNightResult(roomCode) {
             ninjaActor = actor;
             killPerformerIds.add(actorId);
         }
-        else if (actor.role === 'Jester' && act.targetId === actor.id) {
-            if (actor.jesterShield > 0) actor.jesterShieldProtected = true;
+        else if (actor.role === 'Jester' && act.actionType === 'JESTER_SHIELD' && act.targetId === actor.id) {
+            actor.jesterShieldProtected = true;
         }
     });
 
@@ -1516,7 +1529,6 @@ function calculateNightResult(roomCode) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
             io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: 'Hedefinizi öldüremediniz.', type: 'green' });
             if (protectedByJester) {
-                victim.jesterShield--;
                 victim.jesterShieldProtected = false;
             }
         } else {
