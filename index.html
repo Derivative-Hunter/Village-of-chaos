@@ -1293,6 +1293,15 @@
                     if (phase === 'VOTE' && !isMe && myRole !== 'Kayıp Hain') {
                         actionBtnHtml = `<button class="card-btn btn-action-yellow" onclick="handleVote('${p.id}')">🗳️ Oy Ver</button>`;
                     } else if (phase === 'NIGHT') {
+                        const canUseAttack = ((roleName) => {
+                            if (!roleName) return false;
+                            const attackRoleSet = new Set(['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain', 'Kayıp Hain', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain']);
+                            if (!attackRoleSet.has(roleName)) return false;
+                            if (['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain'].includes(roleName)) return Boolean(hasGun);
+                            if (['Gizleyici', 'Düz Hain', 'Suikastçi', 'Ninja Hain', 'Kayıp Hain'].includes(roleName)) return Boolean(hasGun) || roleName === 'Suikastçi' || roleName === 'Kayıp Hain';
+                            return true;
+                        })(myRole);
+
                         if (!['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
                             let btnLabel = '🎯 Eylem';
                             if (myRole === 'Doktor') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
@@ -1316,16 +1325,27 @@
                                         actionBtnHtml += `<button class="card-btn btn-action-purple" onclick="handleNightAction('${p.id}', 'NINJA')">🌑 Ninja Yeteneği</button>`;
                                     }
                                 }
-                            // Jester Kalkanı Kullanıldıysa Buton Kapansın!
                             } else if (myRole === 'Jester') {
                                 if (isMe && jesterShield > 0) {
                                     actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}', 'JESTER_SHIELD')">${btnLabel}</button>`;
                                 }
+                            } else if (myRole === 'Gölge Ajanı' && !hasGun) {
+                                if (!isMe) {
+                                    actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">🌑 Rolünü Öğren</button>`;
+                                }
+                            } else if (myRole === 'Susturucu' && !hasGun) {
+                                if (!isMe) {
+                                    actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">🤐 Sustur</button>`;
+                                }
+                            } else if (myRole === 'Duyucu Hain' && !hasGun) {
+                                actionBtnHtml = '';
+                            } else if (myRole === 'Büyücü Hain' && !hasGun) {
+                                actionBtnHtml = '';
                             } else if (!isMe || myRole === 'Doktor' || (myRole === 'Müttefik' && (dayNumber === 1 || allyTargetId === p.id))) {
                                 if (myRole === 'Müttefik' && dayNumber > 1 && (allyTargetId !== p.id || allyProtectUses >= 2)) {
                                     actionBtnHtml = '';
-                                } else {
-                                actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">${btnLabel}</button>`;
+                                } else if (canUseAttack || !['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain'].includes(myRole)) {
+                                    actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">${btnLabel}</button>`;
                                 }
                             }
                         }

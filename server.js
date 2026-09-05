@@ -82,6 +82,34 @@ function pickRandomRoleSet(rolePool, count, usedRoles = new Set()) {
     const available = shuffle(pool.filter(roleName => !usedRoles.has(roleName)));
     return available.slice(0, Math.min(targetCount, available.length));
 }
+
+function canRoleUseAttack(roleName, hasGun) {
+    if (!roleName) return false;
+    const attackRoles = new Set([
+        'Gizleyici',
+        'Düz Hain',
+        'Suikastçi',
+        'Gölge Ajanı',
+        'Susturucu',
+        'Büyücü Hain',
+        'Duyucu Hain',
+        'Ninja Hain',
+        'Kayıp Hain',
+        'Seri Katil',
+        'Vigilante'
+    ]);
+
+    if (!attackRoles.has(roleName)) return false;
+    if (roleName === 'Duyucu Hain' || roleName === 'Gölge Ajanı' || roleName === 'Susturucu' || roleName === 'Büyücü Hain') {
+        return Boolean(hasGun);
+    }
+    if (roleName === 'Gizleyici' || roleName === 'Düz Hain' || roleName === 'Suikastçi' || roleName === 'Ninja Hain' || roleName === 'Kayıp Hain') {
+        return Boolean(hasGun) || roleName === 'Suikastçi' || roleName === 'Kayıp Hain';
+    }
+    if (roleName === 'Vigilante') return true;
+    if (roleName === 'Seri Katil') return true;
+    return Boolean(hasGun);
+}
 const isHainKoyluPlayer = player => Boolean(player && player.isHain && !ALL_HAIN_ROLES.includes(player.role));
 const getDeadRoleLabel = player => isHainKoyluPlayer(player) ? `Hain ${player.role}` : player.role;
 
@@ -1906,5 +1934,6 @@ module.exports = {
     hasHainMajority,
     getLoverVictoryResult,
     buildRandomRolePool,
-    pickRandomRoleSet
+    pickRandomRoleSet,
+    canRoleUseAttack
 };
