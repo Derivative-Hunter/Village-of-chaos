@@ -299,19 +299,11 @@ function assignGuns(room) {
     const hains = room.players.filter(p => p.isAlive && ALL_HAIN_ROLES.includes(p.role) && p.role !== LOST_HAIN_ROLE && !isHainKoyluPlayer(p));
     hains.forEach(h => h.hasGun = false);
 
-    const dzhainOwners = hains.filter(h => h.role === 'Düz Hain');
-    if (dzhainOwners.length > 0) {
-        const owner = shuffle([...dzhainOwners])[0];
-        owner.hasGun = true;
-        io.to(owner.id).emit('systemAnnounce', '[SİSTEM] 🔫 Silah senin elinde! Gece saldırısını sen gerçekleştireceksin.');
-        return;
-    }
-
     const priority = ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Duyucu Hain', 'Ninja Hain', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain'];
     for (let roleName of priority) {
         const owners = hains.filter(h => h.role === roleName);
         if (owners.length === 0) continue;
-        const owner = owners[0];
+        const owner = roleName === 'Düz Hain' ? shuffle([...owners])[0] : owners[0];
         owner.hasGun = true;
         io.to(owner.id).emit('systemAnnounce', '[SİSTEM] 🔫 Silah senin elinde! Gece saldırısını sen gerçekleştireceksin.');
         break;
