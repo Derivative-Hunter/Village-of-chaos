@@ -42,6 +42,18 @@ const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', 'Jester', 'Hırsız', 'Mütte
 
 const roleNames = group => Object.values(group).flat();
 const TOWN_ROLES = ['Düz Köylü', ...roleNames(ROLE_CATEGORIES.town)];
+const ALL_TOWN_ROLE_POOL = [...new Set(TOWN_ROLES)];
+const HAIN_ROLE_POOL = [...new Set([
+    ...roleNames(ROLE_CATEGORIES.hain).filter(role => role !== HAIN_KOYLU_ROLE),
+    'Düz Hain'
+])];
+const NEUTRAL_ROLE_POOL = [...new Set(roleNames(ROLE_CATEGORIES.neutral))];
+const ALL_RANDOM_ROLE_POOL = [...new Set([
+    ...ALL_TOWN_ROLE_POOL,
+    ...HAIN_ROLE_POOL,
+    ...NEUTRAL_ROLE_POOL,
+    ...['Düz Köylü']
+].filter(role => role !== HAIN_KOYLU_ROLE))];
 const CONFIGURABLE_ROLE_NAMES = [
     ...roleNames(ROLE_CATEGORIES.town),
     ...roleNames(ROLE_CATEGORIES.hain).filter(role => role !== HAIN_KOYLU_ROLE),
@@ -49,6 +61,27 @@ const CONFIGURABLE_ROLE_NAMES = [
     ...roleNames(ROLE_CATEGORIES.neutral),
     'Düz Köylü'
 ];
+
+function buildRandomRolePool(kind = 'all') {
+    switch (kind) {
+        case 'town':
+            return [...ALL_TOWN_ROLE_POOL];
+        case 'hain':
+            return [...HAIN_ROLE_POOL];
+        case 'neutral':
+            return [...NEUTRAL_ROLE_POOL];
+        case 'all':
+        default:
+            return [...ALL_RANDOM_ROLE_POOL];
+    }
+}
+
+function pickRandomRoleSet(rolePool, count, usedRoles = new Set()) {
+    const pool = Array.isArray(rolePool) ? rolePool : [];
+    const targetCount = Math.max(0, parseInt(count) || 0);
+    const available = shuffle(pool.filter(roleName => !usedRoles.has(roleName)));
+    return available.slice(0, Math.min(targetCount, available.length));
+}
 const isHainKoyluPlayer = player => Boolean(player && player.isHain && !ALL_HAIN_ROLES.includes(player.role));
 const getDeadRoleLabel = player => isHainKoyluPlayer(player) ? `Hain ${player.role}` : player.role;
 
@@ -180,6 +213,24 @@ function assignConfiguredRoles(room, shuffledPlayers, roleCounts, usedRoles) {
     return selectedRoles.length;
 }
 
+function assignRandomRolePool(room, shuffledPlayers, startIndex, rolePool, requestedCount, usedRoles) {
+    const availablePlayers = Math.max(0, shuffledPlayers.length - startIndex);
+    const count = Math.min(Math.max(0, parseInt(requestedCount) || 0), rolePool.length, availablePlayers);
+    const selectedRoles = pickRandomRoleSet(rolePool, count, usedRoles);
+
+    selectedRoles.forEach((roleName, offset) => {
+        const player = room.players.find(candidate => candidate.id === shuffledPlayers[startIndex + offset].id);
+        if (!player) return;
+        player.role = roleName;
+        player.isHain = ALL_HAIN_ROLES.includes(roleName);
+        player.isAlive = true;
+        player.ammo = roleName === 'Vigilante' ? 2 : 0;
+        usedRoles.add(roleName);
+    });
+
+    return startIndex + selectedRoles.length;
+}
+
 function assignLovers(room, requestedPairs) {
     room.loverPair = [];
     room.loverShieldUsed = false;
@@ -306,6 +357,7 @@ io.on('connection', (socket) => {
                 randomTownCount: 0,
                 randomHainCount: 0,
                 randomNeutralCount: 0,
+                randomAllCount: 0,
                 korumaKoylusuCount: 0,
                 silahliKoyluCount: 0,
                 arastirmaciKoyluCount: 0,
@@ -484,6 +536,10 @@ io.on('connection', (socket) => {
         idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.town['Silahlı Köylüler'], cfg.silahliKoyluCount, usedRoles);
         idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.town['Araştırmacı Köylüler'], cfg.arastirmaciKoyluCount, usedRoles);
         idx = assignHainKoyluRoles(room, shuffled, idx, cfg.hainKoyluCount, usedRoles);
+        idx = assignRandomRolePool(room, shuffled, idx, buildRandomRolePool('town'), cfg.randomTownCount, usedRoles);
+        idx = assignRandomRolePool(room, shuffled, idx, buildRandomRolePool('hain'), cfg.randomHainCount, usedRoles);
+        idx = assignRandomRolePool(room, shuffled, idx, buildRandomRolePool('neutral'), cfg.randomNeutralCount, usedRoles);
+        idx = assignRandomRolePool(room, shuffled, idx, buildRandomRolePool('all'), cfg.randomAllCount, usedRoles);
 
         while (idx < totalPlayers) {
             const player = room.players.find(x => x.id === shuffled[idx].id);
@@ -1848,5 +1904,7 @@ module.exports = {
     getAdditionalWinners,
     withAdditionalWinners,
     hasHainMajority,
-    getLoverVictoryResult
+    getLoverVictoryResult,
+    buildRandomRolePool,
+    pickRandomRoleSet
 };

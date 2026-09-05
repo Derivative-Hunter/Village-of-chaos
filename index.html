@@ -719,6 +719,30 @@
                     <div class="setting-item"><label>Rol sayısı (Jester / Hırsız / Müttefik):</label><input type="number" id="cfg-normal-tarafsiz" value="0" min="0" max="3" onchange="emitSettings()"></div>
                 </div>
             </div>
+            <div class="role-category town">
+                <h5>🎲 Rastgele Köylü</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Rastgele köylü rolü sayısı:</label><input type="number" id="cfg-random-town" value="0" min="0" max="20" onchange="emitSettings()"></div>
+                </div>
+            </div>
+            <div class="role-category hain">
+                <h5>🎲 Rastgele Hain</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Rastgele hain rolü sayısı:</label><input type="number" id="cfg-random-hain" value="0" min="0" max="20" onchange="emitSettings()"></div>
+                </div>
+            </div>
+            <div class="role-category neutral">
+                <h5>🎲 Rastgele Tarafsız</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Rastgele tarafsız rolü sayısı:</label><input type="number" id="cfg-random-neutral" value="0" min="0" max="20" onchange="emitSettings()"></div>
+                </div>
+            </div>
+            <div class="role-category town">
+                <h5>🎲 Rastgele Tümü</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Rastgele tüm rol sayısı:</label><input type="number" id="cfg-random-all" value="0" min="0" max="20" onchange="emitSettings()"></div>
+                </div>
+            </div>
         </div>
 
         <div class="settings-box">
@@ -1011,6 +1035,10 @@
             silahliKoyluCount: parseInt(document.getElementById('cfg-silahli-koylu').value) || 0,
             arastirmaciKoyluCount: parseInt(document.getElementById('cfg-arastirmaci-koylu').value) || 0,
             hainKoyluCount: parseInt(document.getElementById('cfg-hain-koylu').value) || 0,
+            randomTownCount: parseInt(document.getElementById('cfg-random-town').value) || 0,
+            randomHainCount: parseInt(document.getElementById('cfg-random-hain').value) || 0,
+            randomNeutralCount: parseInt(document.getElementById('cfg-random-neutral').value) || 0,
+            randomAllCount: parseInt(document.getElementById('cfg-random-all').value) || 0,
             normalRoleCounts: readNormalRoleCounts(),
             silahliHainCount: parseInt(document.getElementById('cfg-silahli-hain').value) || 0,
             destekciHainCount: parseInt(document.getElementById('cfg-destekci-hain').value) || 0,
@@ -1033,6 +1061,10 @@
         document.getElementById('cfg-silahli-koylu').value = settings.silahliKoyluCount ?? 0;
         document.getElementById('cfg-arastirmaci-koylu').value = settings.arastirmaciKoyluCount ?? 0;
         document.getElementById('cfg-hain-koylu').value = settings.hainKoyluCount ?? 0;
+        document.getElementById('cfg-random-town').value = settings.randomTownCount ?? 0;
+        document.getElementById('cfg-random-hain').value = settings.randomHainCount ?? 0;
+        document.getElementById('cfg-random-neutral').value = settings.randomNeutralCount ?? 0;
+        document.getElementById('cfg-random-all').value = settings.randomAllCount ?? 0;
         applyNormalRoleCounts(settings.normalRoleCounts);
         document.getElementById('cfg-silahli-hain').value = settings.silahliHainCount ?? 0;
         document.getElementById('cfg-destekci-hain').value = settings.destekciHainCount ?? 0;
@@ -1049,7 +1081,7 @@
     }
 
     function setInputsDisabled(disabled) {
-        const ids = ['cfg-koruma-koylusu', 'cfg-silahli-koylu', 'cfg-arastirmaci-koylu', 'cfg-asik', 'cfg-silahli-hain', 'cfg-destekci-hain', 'cfg-hain-koylu', 'cfg-silahli-tarafsiz', 'cfg-normal-tarafsiz', 'cfg-day', 'cfg-vote', 'cfg-defense', 'cfg-judgment', 'cfg-night', 'cfg-bots'];
+        const ids = ['cfg-koruma-koylusu', 'cfg-silahli-koylu', 'cfg-arastirmaci-koylu', 'cfg-asik', 'cfg-silahli-hain', 'cfg-destekci-hain', 'cfg-hain-koylu', 'cfg-silahli-tarafsiz', 'cfg-normal-tarafsiz', 'cfg-day', 'cfg-vote', 'cfg-defense', 'cfg-judgment', 'cfg-night', 'cfg-bots', 'cfg-random-town', 'cfg-random-hain', 'cfg-random-neutral', 'cfg-random-all'];
         ids.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.disabled = disabled;
