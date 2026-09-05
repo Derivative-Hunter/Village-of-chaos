@@ -104,6 +104,7 @@ function canRoleUseAttack(roleName, hasGun) {
         return Boolean(hasGun);
     }
     if (roleName === 'Gizleyici' || roleName === 'Düz Hain' || roleName === 'Suikastçi' || roleName === 'Ninja Hain' || roleName === 'Kayıp Hain') {
+        if (roleName === 'Düz Hain') return Boolean(hasGun);
         return Boolean(hasGun) || roleName === 'Suikastçi' || roleName === 'Kayıp Hain';
     }
     if (roleName === 'Vigilante') return true;
@@ -298,14 +299,22 @@ function assignGuns(room) {
     const hains = room.players.filter(p => p.isAlive && ALL_HAIN_ROLES.includes(p.role) && p.role !== LOST_HAIN_ROLE && !isHainKoyluPlayer(p));
     hains.forEach(h => h.hasGun = false);
 
+    const dzhainOwners = hains.filter(h => h.role === 'Düz Hain');
+    if (dzhainOwners.length > 0) {
+        const owner = shuffle([...dzhainOwners])[0];
+        owner.hasGun = true;
+        io.to(owner.id).emit('systemAnnounce', '[SİSTEM] 🔫 Silah senin elinde! Gece saldırısını sen gerçekleştireceksin.');
+        return;
+    }
+
     const priority = ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Duyucu Hain', 'Ninja Hain', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain'];
     for (let roleName of priority) {
-        const owner = hains.find(h => h.role === roleName);
-        if (owner) {
-            owner.hasGun = true;
-            io.to(owner.id).emit('systemAnnounce', '[SİSTEM] 🔫 Silah senin elinde! Gece saldırısını sen gerçekleştireceksin.');
-            break;
-        }
+        const owners = hains.filter(h => h.role === roleName);
+        if (owners.length === 0) continue;
+        const owner = owners[0];
+        owner.hasGun = true;
+        io.to(owner.id).emit('systemAnnounce', '[SİSTEM] 🔫 Silah senin elinde! Gece saldırısını sen gerçekleştireceksin.');
+        break;
     }
 }
 
@@ -865,6 +874,9 @@ io.on('connection', (socket) => {
                 if (actionType !== 'JESTER_SHIELD' || targetId !== actor.id) return socket.emit('errorMsg', 'Jester yalnızca kendi evinde kalkan açabilir!');
                 if (actor.jesterShield <= 0) return socket.emit('errorMsg', 'Kalkan hakkın kalmadı!');
             }
+            if (actor.role === 'Düz Hain' && !actor.hasGun) {
+                return socket.emit('errorMsg', 'Silahın yoksa Düz Hain olarak gece saldırısı yapamazsın!');
+            }
             if (actor.role === 'Büyücü Hain' && !actor.hasGun) {
                 return socket.emit('errorMsg', 'Silahın yoksa Büyücü Hain olarak saldırı yapamazsın; büyü gücünü kullanmalısın!');
             }
@@ -873,6 +885,15 @@ io.on('connection', (socket) => {
             }
             if (actor.role === 'Ninja Hain' && actionType !== 'NINJA' && !actor.hasGun) {
                 return socket.emit('errorMsg', 'Silahın yoksa normal saldırı yapamazsın; Ninja yeteneğini kullanabilirsin!');
+            }
+            if (actor.role === 'Gölge Ajanı' && !actor.hasGun) {
+                return socket.emit('errorMsg', 'Silahın yoksa Gölge Ajanı olarak saldırı yapamazsın; rolünü öğrenme yeteneğini kullanmalısın!');
+            }
+            if (actor.role === 'Susturucu' && !actor.hasGun && actionType !== 'SILENCE') {
+                return socket.emit('errorMsg', 'Silahın yoksa Susturucu olarak saldırı yapamazsın; susturma yeteneğini kullanmalısın!');
+            }
+            if (actor.role === 'Duyucu Hain' && !actor.hasGun) {
+                return socket.emit('errorMsg', 'Silahın yoksa Duyucu Hain olarak gece saldırısı yapamazsın!');
             }
             if (actor.role === 'Vigilante' && actor.ammo <= 0) {
                 return socket.emit('errorMsg', 'Mermin kalmadı!');
@@ -1935,5 +1956,6 @@ module.exports = {
     getLoverVictoryResult,
     buildRandomRolePool,
     pickRandomRoleSet,
-    canRoleUseAttack
+    canRoleUseAttack,
+    assignGuns
 };

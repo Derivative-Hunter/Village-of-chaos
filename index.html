@@ -1341,10 +1341,12 @@
                                 actionBtnHtml = '';
                             } else if (myRole === 'Büyücü Hain' && !hasGun) {
                                 actionBtnHtml = '';
+                            } else if (myRole === 'Düz Hain' && !hasGun) {
+                                actionBtnHtml = '';
                             } else if (!isMe || myRole === 'Doktor' || (myRole === 'Müttefik' && (dayNumber === 1 || allyTargetId === p.id))) {
                                 if (myRole === 'Müttefik' && dayNumber > 1 && (allyTargetId !== p.id || allyProtectUses >= 2)) {
                                     actionBtnHtml = '';
-                                } else if (canUseAttack || !['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain'].includes(myRole)) {
+                                } else if (canUseAttack || !['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Düz Hain'].includes(myRole)) {
                                     actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">${btnLabel}</button>`;
                                 }
                             }
