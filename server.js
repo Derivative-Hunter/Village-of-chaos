@@ -893,7 +893,7 @@ io.on('connection', (socket) => {
             if (actor.role === 'Ninja Hain' && actionType !== 'NINJA' && !actor.hasGun) {
                 return socket.emit('errorMsg', 'Silahın yoksa normal saldırı yapamazsın; Ninja yeteneğini kullanabilirsin!');
             }
-            if (actor.role === 'Gölge Ajanı' && !actor.hasGun) {
+            if (actor.role === 'Gölge Ajanı' && !actor.hasGun && actionType !== 'SHADOW') {
                 return socket.emit('errorMsg', 'Silahın yoksa Gölge Ajanı olarak saldırı yapamazsın; rolünü öğrenme yeteneğini kullanmalısın!');
             }
             if (actor.role === 'Susturucu' && !actor.hasGun && actionType !== 'SILENCE') {

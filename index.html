@@ -1348,11 +1348,11 @@
                                 }
                             } else if (myRole === 'Gölge Ajanı' && !hasGun) {
                                 if (!isMe) {
-                                    actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">🌑 Rolünü Öğren</button>`;
+                                    actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}', 'SHADOW')">🌑 Rolünü Öğren</button>`;
                                 }
                             } else if (myRole === 'Susturucu' && !hasGun) {
                                 if (!isMe) {
-                                    actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">🤐 Sustur</button>`;
+                                    actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}', 'SILENCE')">🤐 Sustur</button>`;
                                 }
                             } else if (myRole === 'Duyucu Hain' && !hasGun) {
                                 actionBtnHtml = '';
