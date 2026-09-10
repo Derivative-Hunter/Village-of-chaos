@@ -668,7 +668,7 @@
             <div class="role-category town">
                 <h5>🏘️ Köy Takımı · Koruma Köylüleri</h5>
                 <div class="setting-grid">
-                    <div class="setting-item"><label>Rol sayısı (Doktor / Uyutucu / Tuzakçı):</label><input type="number" id="cfg-koruma-koylusu" value="0" min="0" max="3" onchange="emitSettings()"></div>
+                    <div class="setting-item"><label>Rol sayısı (Doktor / Melek / Uyutucu / Tuzakçı):</label><input type="number" id="cfg-koruma-koylusu" value="0" min="0" max="4" onchange="emitSettings()"></div>
                 </div>
             </div>
             <div class="role-category town">
@@ -751,6 +751,7 @@
             <div class="setting-grid" id="normal-role-counters">
                 <div class="setting-item"><label>Düz Köylü</label><input type="number" id="cfg-role-duz-koylu" data-role="Düz Köylü" value="0" min="0" max="30" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Doktor</label><input type="number" id="cfg-role-doktor" data-role="Doktor" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Melek</label><input type="number" id="cfg-role-melek" data-role="Melek" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Uyutucu</label><input type="number" id="cfg-role-uyutucu" data-role="Uyutucu" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Vigilante</label><input type="number" id="cfg-role-vigilante" data-role="Vigilante" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Başkan</label><input type="number" id="cfg-role-baskan" data-role="Başkan" value="0" min="0" max="5" onchange="emitSettings()"></div>
@@ -902,6 +903,7 @@
         <p id="suikast-target-name"></p>
         <select id="suikast-role-select">
             <option value="Doktor">Doktor</option>
+            <option value="Melek">Melek</option>
             <option value="Gözcü">Gözcü</option>
             <option value="Ayakçı">Ayakçı</option>
             <option value="Casus">Casus</option>
@@ -947,6 +949,7 @@
         <div class="role-list-item"><strong>💤 Uyutucu:</strong> Gece seçtiği oyuncunun eylemini iptal eder.</div>
         <div class="role-list-item"><strong>🪤 Tuzakçı Köylü:</strong> Seçtiği eve gidenlerin rol gücünü kullandırmaz. Seri Katil ve Kundakçı bu tuzaktan etkilenmez.</div>
         <div class="role-list-item"><strong>🏥 Doktor:</strong> Gece seçtiği bir oyuncuyu saldırılardan korur.</div>
+        <div class="role-list-item"><strong>👼 Melek:</strong> Öldükten sonra da gece yaşayan bir oyuncuyu saldırılardan koruyabilir; ölü oyuncuları koruyamaz.</div>
         <div class="role-list-item"><strong>👑 Başkan:</strong> Kendini ifşa ederse oy gücü 3 olur; yaşadığı sürece Hainlerin ve Seri Katilin kazanmasını engeller.</div>
         <div class="role-list-item"><strong>🔫 Vigilante:</strong> Gece sınırlı mermisiyle bir oyuncuya saldırır; masum birini vurursa vicdan azabıyla ölür.</div>
         <div class="role-list-item"><strong>🪞 Düzenbaz Köylü:</strong> Gece bir eve gider. O eve gelen eylemler ziyaretçiye yansır; öldürmeye gelen kişi kendini vurur ve Düzenbaz da ölür. Kundakçıdan etkilenmez.</div>
@@ -1272,7 +1275,7 @@
             let hirsizBtnHtml = '';
             let loverProtectBtnHtml = '';
 
-            if (amIAlive || hunterStand) {
+            if (amIAlive || hunterStand || myRole === 'Melek') {
                 if (p.isAlive && !isMe && phase !== 'NIGHT') {
                     whisperBtnHtml = `<button class="card-btn btn-action-purple" onclick="handleWhisper('${p.id}')">💬 Fısılda</button>`;
                 }
@@ -1302,9 +1305,9 @@
                             return true;
                         })(myRole);
 
-                        if (!['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
+                        if ((amIAlive || myRole === 'Melek') && !['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
                             let btnLabel = '🎯 Eylem';
-                            if (myRole === 'Doktor') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
+                            if (myRole === 'Doktor' || myRole === 'Melek') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
                             else if (myRole === 'Müttefik') btnLabel = dayNumber === 1 ? '🤝 Müttefikini Seç' : '🛡️ Müttefikini Koru';
                             else if (['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain', 'Kayıp Hain'].includes(myRole) || (myRole === 'Büyücü Hain' && hasGun)) btnLabel = '🎯 Saldır';
                             else if (myRole === 'Gölge Ajanı') btnLabel = hasGun ? '🎯 Saldır' : '🌑 Rolünü Öğren';
@@ -1343,7 +1346,7 @@
                                 actionBtnHtml = '';
                             } else if (myRole === 'Düz Hain' && !hasGun) {
                                 actionBtnHtml = '';
-                            } else if (!isMe || myRole === 'Doktor' || (myRole === 'Müttefik' && (dayNumber === 1 || allyTargetId === p.id))) {
+                            } else if (!isMe || myRole === 'Doktor' || myRole === 'Melek' || (myRole === 'Müttefik' && (dayNumber === 1 || allyTargetId === p.id))) {
                                 if (myRole === 'Müttefik' && dayNumber > 1 && (allyTargetId !== p.id || allyProtectUses >= 2)) {
                                     actionBtnHtml = '';
                                 } else if (canUseAttack || !['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Düz Hain'].includes(myRole)) {

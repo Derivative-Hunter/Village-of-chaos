@@ -17,7 +17,7 @@ const rooms = {};
 
 const ROLE_CATEGORIES = {
     town: {
-        'Koruma Köylüleri': ['Doktor', 'Uyutucu', 'Tuzakçı Köylü'],
+        'Koruma Köylüleri': ['Doktor', 'Melek', 'Uyutucu', 'Tuzakçı Köylü'],
         'Silahlı Köylüler': ['Vigilante', 'Başkan', 'Düzenbaz Köylü', 'Avcı Köylü'],
         'Araştırmacı Köylüler': ['Ayakçı', 'Gözcü', 'Medyum', 'Casus', 'Kahin Köylü']
     },
@@ -841,7 +841,7 @@ io.on('connection', (socket) => {
         if (!room || room.phase !== 'NIGHT') return;
 
         const actor = room.players.find(p => p.id === socket.id);
-        if (actor && actor.isAlive) {
+        if (actor && (actor.isAlive || actor.role === 'Melek')) {
             if (actionType === 'PASS') {
                 const existingAction = room.nightActions[socket.id];
                 if (actor.role === 'Jester' && existingAction?.actionType === 'JESTER_SHIELD') {
@@ -853,6 +853,10 @@ io.on('connection', (socket) => {
             }
             if (['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Avcı Köylü'].includes(actor.role)) return;
             if (actor.role === 'Hırsız') return socket.emit('errorMsg', 'Hırsız gece eylemi yapamaz!');
+            if (actor.role === 'Melek') {
+                const target = room.players.find(player => player.id === targetId && player.isAlive);
+                if (!target) return socket.emit('errorMsg', 'Melek yalnızca yaşayan bir oyuncuyu koruyabilir!');
+            }
             if (actor.role === 'Müttefik') {
                 const target = room.players.find(player => player.id === targetId && player.isAlive);
                 if (!target) return socket.emit('errorMsg', 'Yalnızca yaşayan bir oyuncuyu seçebilirsin!');
@@ -1430,7 +1434,7 @@ function calculateNightResult(roomCode) {
 
     Object.entries(actions).forEach(([actorId, act]) => {
         const actor = room.players.find(p => p.id === actorId);
-        if (!actor || !actor.isAlive || act.blockedByTrap) return;
+        if (!actor || (!actor.isAlive && actor.role !== 'Melek') || act.blockedByTrap) return;
 
         if (actor.isLover && act.actionType === 'LOVER_PROTECT') {
             if (room.loverShieldUsed) return;
@@ -1457,7 +1461,12 @@ function calculateNightResult(roomCode) {
             vigActor = actor;
             killPerformerIds.add(actorId);
         }
-        else if (actor.role === 'Doktor') { docTarget = act.targetId; docActor = actor; }
+        else if (actor.role === 'Doktor' || actor.role === 'Melek') {
+            const target = room.players.find(player => player.id === act.targetId && player.isAlive);
+            if (!target) return;
+            docTarget = target.id;
+            docActor = actor;
+        }
         else if (actor.role === 'Müttefik') {
             const target = room.players.find(player => player.id === act.targetId && player.isAlive);
             if (!target || actor.allyProtectUses >= 2) return;
@@ -1510,7 +1519,9 @@ function calculateNightResult(roomCode) {
     if (docActor && docTarget) {
         const healedPlayer = room.players.find(p => p.id === docTarget);
         if (healedPlayer) {
-            io.to(docActor.id).emit('chatMessage', { sender: '[DOKTOR]', text: `${healedPlayer.username} adlı kişiyi iyileştirdin.`, type: 'green' });
+            const roleLabel = docActor.role === 'Melek' ? 'MELEK' : 'DOKTOR';
+            const actionText = docActor.role === 'Melek' ? 'korudun' : 'iyileştirdin';
+            io.to(docActor.id).emit('chatMessage', { sender: `[${roleLabel}]`, text: `${healedPlayer.username} adlı kişiyi ${actionText}.`, type: 'green' });
         }
     }
 
