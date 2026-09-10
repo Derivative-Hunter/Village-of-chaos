@@ -23,7 +23,7 @@ const ROLE_CATEGORIES = {
     },
     hain: {
         'Silahlı Hainler': ['Gizleyici', 'Ninja Hain', 'Kayıp Hain'],
-        'Destekçi Hainler': ['Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Duyucu Hain'],
+        'Destekçi Hainler': ['Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain'],
         'Hain Köylü': ['Hain Köylü']
     },
     neutral: {
@@ -32,7 +32,8 @@ const ROLE_CATEGORIES = {
     }
 };
 
-const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'];
+const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'];
+const NECROMANCER_SOURCE_ROLES = ['Doktor', 'Uyutucu', 'Tuzakçı Köylü', 'Vigilante', 'Düzenbaz Köylü', 'Ayakçı', 'Gözcü', 'Kahin Köylü', 'Ninja Hain', 'Kayıp Hain', 'Gölge Ajanı', 'Susturucu', 'Seri Katil'];
 const LOST_HAIN_ROLE = 'Kayıp Hain';
 const HAIN_KOYLU_ROLE = 'Hain Köylü';
 const isHainPlayer = player => Boolean(player && (player.isHain || ALL_HAIN_ROLES.includes(player.role)));
@@ -91,6 +92,7 @@ function canRoleUseAttack(roleName, hasGun) {
         'Suikastçi',
         'Gölge Ajanı',
         'Susturucu',
+        'Necromancer',
         'Büyücü Hain',
         'Duyucu Hain',
         'Ninja Hain',
@@ -100,7 +102,7 @@ function canRoleUseAttack(roleName, hasGun) {
     ]);
 
     if (!attackRoles.has(roleName)) return false;
-    if (roleName === 'Duyucu Hain' || roleName === 'Gölge Ajanı' || roleName === 'Susturucu' || roleName === 'Büyücü Hain') {
+    if (roleName === 'Duyucu Hain' || roleName === 'Gölge Ajanı' || roleName === 'Susturucu' || roleName === 'Necromancer' || roleName === 'Büyücü Hain') {
         return Boolean(hasGun);
     }
     if (roleName === 'Gizleyici' || roleName === 'Düz Hain' || roleName === 'Suikastçi' || roleName === 'Ninja Hain' || roleName === 'Kayıp Hain') {
@@ -299,7 +301,7 @@ function assignGuns(room) {
     const hains = room.players.filter(p => p.isAlive && ALL_HAIN_ROLES.includes(p.role) && p.role !== LOST_HAIN_ROLE && !isHainKoyluPlayer(p));
     hains.forEach(h => h.hasGun = false);
 
-    const priority = ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Duyucu Hain', 'Ninja Hain', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain'];
+    const priority = ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Duyucu Hain', 'Ninja Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain'];
     for (let roleName of priority) {
         const owners = hains.filter(h => h.role === roleName);
         if (owners.length === 0) continue;
@@ -338,6 +340,11 @@ function sendGameState(roomCode) {
                 ? room.players
                     .filter(p => p.isAlive && p.id !== player.id && !isHainPlayer(p))
                     .map(p => ({ id: p.id, username: p.username }))
+                : [],
+            necromancerTargets: player.role === 'Necromancer'
+                ? room.players
+                    .filter(p => !p.isAlive && NECROMANCER_SOURCE_ROLES.includes(p.role))
+                    .map(p => ({ id: p.id, username: p.username, role: p.role, ammo: p.ammo, ninjaUsed: p.ninjaUsed }))
                 : [],
             phase: room.phase,
             timeLeft: room.timeLeft,
@@ -853,6 +860,9 @@ io.on('connection', (socket) => {
             }
             if (['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Avcı Köylü'].includes(actor.role)) return;
             if (actor.role === 'Hırsız') return socket.emit('errorMsg', 'Hırsız gece eylemi yapamaz!');
+            if (actor.role === 'Necromancer' && !actor.hasGun) {
+                return socket.emit('errorMsg', 'Silahın yoksa Necromancer olarak yalnızca ölü rol gücünü kullanabilirsin!');
+            }
             if (actor.role === 'Melek') {
                 if (actor.isAlive) return socket.emit('errorMsg', 'Melek yalnızca öldükten sonra koruma yapabilir!');
                 const target = room.players.find(player => player.id === targetId && player.isAlive);
@@ -943,6 +953,44 @@ io.on('connection', (socket) => {
         }
 
         room.nightActions[socket.id] = { role: actor.role, actionType: 'WIZARD', targetId, controlledId: controlled.id, controlledRole: controlled.role };
+        socket.emit('actionConfirmed', { targetId, targetName: target.username });
+    });
+
+    socket.on('necromancerAction', ({ roomCode, sourceId, targetId }) => {
+        const code = (roomCode || socket.roomCode || '').trim().toUpperCase();
+        const room = rooms[code];
+        const actor = room && room.players.find(p => p.id === socket.id);
+        if (!room || room.phase !== 'NIGHT' || !actor || !actor.isAlive || actor.role !== 'Necromancer') return;
+        if (actor.hasGun) return socket.emit('errorMsg', 'Silah sende; bu gece yalnız saldırı yapabilirsin!');
+
+        const source = room.players.find(player => player.id === sourceId);
+        const target = room.players.find(player => player.id === targetId && player.isAlive);
+        if (!source || source.isAlive || !NECROMANCER_SOURCE_ROLES.includes(source.role)) {
+            return socket.emit('errorMsg', 'Bu ölü rol Necromancer tarafından kullanılamaz!');
+        }
+        if (!target) return socket.emit('errorMsg', 'Yalnızca yaşayan bir hedef seçebilirsin!');
+        if (source.role === 'Vigilante' && source.ammo <= 0) {
+            return socket.emit('errorMsg', 'Ölü Vigilante artık mermi taşımaz!');
+        }
+        if (source.role === 'Ninja Hain' && source.ninjaUsed) {
+            return socket.emit('errorMsg', 'Ölü Ninja Hain yeteneğini zaten kullandı!');
+        }
+
+        const existingNightAction = room.nightActions && room.nightActions[socket.id];
+        if (!canUseAdditionalNightAction(actor, 'NECROMANCER', existingNightAction)) {
+            return socket.emit('errorMsg', 'Aşık olarak aynı gece iki farklı gece eylemi kullanamazsın!');
+        }
+
+        if (source.role === 'Vigilante') source.ammo--;
+        if (source.role === 'Ninja Hain') source.ninjaUsed = true;
+        room.nightActions[socket.id] = {
+            role: source.role,
+            actionType: 'NECROMANCER',
+            targetId,
+            controlledBy: socket.id,
+            controlledRole: source.role,
+            controlledSourceId: source.id
+        };
         socket.emit('actionConfirmed', { targetId, targetName: target.username });
     });
 
@@ -1297,10 +1345,12 @@ function calculateNightResult(roomCode) {
 
     const actions = room.nightActions || {};
     room.mutedPlayerId = null;
+    const getActionRole = (actorId, act) => act && (act.controlledRole || (room.players.find(player => player.id === actorId) || {}).role);
 
     Object.entries(actions).forEach(([actorId, act]) => {
         const actor = room.players.find(p => p.id === actorId);
-        if (!actor || !actor.isAlive || actor.role !== 'Uyutucu') return;
+        const effectiveRole = act.controlledBy ? act.role : actor && actor.role;
+        if (!actor || !actor.isAlive || effectiveRole !== 'Uyutucu') return;
 
         const target = room.players.find(p => p.id === act.targetId);
         if (!target) return;
@@ -1357,7 +1407,7 @@ function calculateNightResult(roomCode) {
     let docTarget = null, docActor = null;
     let allyProtectTarget = null;
     let loverProtectTarget = null;
-    let skTarget = null;
+    let skTarget = null, skActor = null;
     let hainTarget = null, hainActor = null;
     let lostHainTarget = null, lostHainActor = null;
     let vigTarget = null, vigActor = null;
@@ -1378,7 +1428,8 @@ function calculateNightResult(roomCode) {
 
     Object.entries(actions).forEach(([actorId, act]) => {
         const actor = room.players.find(p => p.id === actorId);
-        if (actor && actor.isAlive && actor.role === 'Tuzakçı Köylü' && act.targetId) {
+        const effectiveRole = act.controlledBy ? act.role : actor && actor.role;
+        if (actor && actor.isAlive && effectiveRole === 'Tuzakçı Köylü' && act.targetId) {
             trapTargets.add(act.targetId);
             trapActors.set(act.targetId, actor);
         }
@@ -1386,7 +1437,8 @@ function calculateNightResult(roomCode) {
 
     Object.entries(actions).forEach(([actorId, act]) => {
         const actor = room.players.find(p => p.id === actorId);
-        if (actor && actor.isAlive && actor.role === 'Düzenbaz Köylü' && act.targetId) {
+        const effectiveRole = act.controlledBy ? act.role : actor && actor.role;
+        if (actor && actor.isAlive && effectiveRole === 'Düzenbaz Köylü' && act.targetId) {
             tricksterTarget = act.targetId;
             tricksterActor = actor;
         }
@@ -1394,8 +1446,9 @@ function calculateNightResult(roomCode) {
 
     Object.entries(actions).forEach(([actorId, act]) => {
         const actor = room.players.find(p => p.id === actorId);
+        const effectiveRole = act.controlledBy ? act.role : actor && actor.role;
         if (!actor || !actor.isAlive || !act.targetId || !trapTargets.has(act.targetId)) return;
-        if (!['Seri Katil', 'Kundakçı', LOST_HAIN_ROLE].includes(actor.role) && actor.role !== 'Tuzakçı Köylü' && !(actor.role === 'Ninja Hain' && act.actionType === 'NINJA')) {
+        if (!['Seri Katil', 'Kundakçı', LOST_HAIN_ROLE].includes(effectiveRole) && effectiveRole !== 'Tuzakçı Köylü' && !(effectiveRole === 'Ninja Hain' && act.actionType === 'NINJA')) {
             act.blockedByTrap = true;
             const trapper = trapActors.get(act.targetId);
             if (trapper) {
@@ -1447,11 +1500,56 @@ function calculateNightResult(roomCode) {
             return;
         }
 
+        if (act.actionType === 'NECROMANCER') {
+            if (act.role === 'Düzenbaz Köylü') {
+                tricksterTarget = act.targetId;
+                tricksterActor = actor;
+            } else if (act.role === 'Seri Katil') {
+                skTarget = act.targetId;
+                skActor = actor;
+                killPerformerIds.add(actorId);
+            } else if (act.role === 'Kayıp Hain') {
+                lostHainTarget = act.targetId;
+                lostHainActor = actor;
+                killPerformerIds.add(actorId);
+            } else if (act.role === 'Vigilante') {
+                vigTarget = act.targetId;
+                vigActor = actor;
+                killPerformerIds.add(actorId);
+            } else if (act.role === 'Ninja Hain') {
+                ninjaTarget = act.targetId;
+                ninjaActor = actor;
+                killPerformerIds.add(actorId);
+            } else if (act.role === 'Doktor') {
+                const target = room.players.find(player => player.id === act.targetId && player.isAlive);
+                if (target) {
+                    docTarget = target.id;
+                    docActor = actor;
+                }
+            } else if (act.role === 'Gölge Ajanı') {
+                shadowTarget = act.targetId;
+                shadowActor = actor;
+            } else if (act.role === 'Kahin Köylü') {
+                kahinTarget = act.targetId;
+                kahinActor = actor;
+            } else if (act.role === 'Gözcü') {
+                gozcuTarget = act.targetId;
+                gozcuActor = actor;
+            } else if (act.role === 'Ayakçı') {
+                ayakciTarget = act.targetId;
+                ayakciActor = actor;
+            } else if (act.role === 'Susturucu') {
+                silencerTarget = act.targetId;
+                silencerActor = actor;
+            }
+            return;
+        }
+
         if (act.controlledBy && act.role === 'Düzenbaz Köylü') {
             tricksterTarget = act.targetId;
             tricksterActor = actor;
         }
-        else if (act.controlledBy && act.role === 'Seri Katil') { skTarget = act.targetId; killPerformerIds.add(actorId); }
+        else if (act.controlledBy && act.role === 'Seri Katil') { skTarget = act.targetId; skActor = actor; killPerformerIds.add(actorId); }
         else if (act.controlledBy && (ALL_HAIN_ROLES.includes(act.role) || act.role === HAIN_KOYLU_ROLE)) {
             hainTarget = act.targetId;
             hainActor = actor;
@@ -1480,7 +1578,7 @@ function calculateNightResult(roomCode) {
         }
         else if (actor.role === 'Gölge Ajanı' && !actor.hasGun) { shadowTarget = act.targetId; shadowActor = actor; }
         else if (actor.role === 'Kahin Köylü') { kahinTarget = act.targetId; kahinActor = actor; }
-        else if (actor.role === 'Seri Katil') { skTarget = act.targetId; killPerformerIds.add(actorId); }
+        else if (actor.role === 'Seri Katil') { skTarget = act.targetId; skActor = actor; killPerformerIds.add(actorId); }
         else if (actor.role === LOST_HAIN_ROLE) {
             lostHainTarget = act.targetId;
             lostHainActor = actor;
@@ -1597,12 +1695,12 @@ function calculateNightResult(roomCode) {
             (vigActor && vigTarget === arsoActor.id))
     );
 
-    function processAttack(attacker, targetId, killerName) {
+    function processAttack(attacker, targetId, killerName, effectiveRole = attacker && attacker.role) {
         if (!attacker || !attacker.isAlive || !targetId) return;
         const victim = room.players.find(p => p.id === targetId);
         if (!victim || !victim.isAlive) return;
 
-        const canKillKundakci = ['Gizleyici', 'Seri Katil', LOST_HAIN_ROLE].includes(attacker.role);
+        const canKillKundakci = ['Gizleyici', 'Seri Katil', LOST_HAIN_ROLE].includes(effectiveRole);
         const isKundakciTarget = victim.role === 'Kundakçı';
         if (isKundakciTarget && !canKillKundakci) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
@@ -1648,7 +1746,7 @@ function calculateNightResult(roomCode) {
                 victim.hunterStandUsed = false;
                 room.hunterStand = { playerId: victim.id, expiresAt: 0 };
             }
-            let hideRole = (attacker && attacker.role === 'Gizleyici');
+            let hideRole = effectiveRole === 'Gizleyici';
             victim.roleHidden = hideRole;
             killedList.push({ player: victim, killer: killerName, hiddenRole: hideRole });
             checkGunPass(room, victim);
@@ -1661,10 +1759,10 @@ function calculateNightResult(roomCode) {
         }
     }
 
-    if (skTarget) processAttack(room.players.find(p => p.role === 'Seri Katil'), skTarget, 'Seri Katil');
-    if (hainActor && hainTarget) processAttack(hainActor, hainTarget, hainActor.role === 'Gizleyici' ? 'Gizleyici' : 'Hainler');
-    if (lostHainActor && lostHainTarget) processAttack(lostHainActor, lostHainTarget, LOST_HAIN_ROLE);
-    if (vigActor && vigTarget) processAttack(vigActor, vigTarget, 'Vigilante');
+    if (skTarget) processAttack(skActor, skTarget, 'Seri Katil', 'Seri Katil');
+    if (hainActor && hainTarget) processAttack(hainActor, hainTarget, actions[hainActor.id]?.role === 'Gizleyici' ? 'Gizleyici' : 'Hainler', actions[hainActor.id]?.role || hainActor.role);
+    if (lostHainActor && lostHainTarget) processAttack(lostHainActor, lostHainTarget, LOST_HAIN_ROLE, LOST_HAIN_ROLE);
+    if (vigActor && vigTarget) processAttack(vigActor, vigTarget, 'Vigilante', 'Vigilante');
 
     // --- DÜZENBAZ KÖYLÜ (DECEIVER) — SURVIVAL OUTCOME ---
     // The Deceiver only pays with his life when the specific action that got reflected
@@ -1707,7 +1805,7 @@ function calculateNightResult(roomCode) {
         const visitors = Object.entries(actions)
             .filter(([aId, act]) => act.targetId === gozcuTarget && !act.noVisit && aId !== gozcuActor.id)
             .map(([aId]) => room.players.find(p => p.id === aId))
-            .filter(p => p && !NEUTRAL_ROLES.includes(p.role) && p.role !== 'Seri Katil' && !(p.role === LOST_HAIN_ROLE && gozcuTarget === actions[p.id]?.targetId))
+            .filter(p => p && !NEUTRAL_ROLES.includes(getActionRole(p.id, actions[p.id])) && getActionRole(p.id, actions[p.id]) !== 'Seri Katil' && !(getActionRole(p.id, actions[p.id]) === LOST_HAIN_ROLE && gozcuTarget === actions[p.id]?.targetId))
             .map(p => p.username);
 
         const targetP = room.players.find(p => p.id === gozcuTarget);
@@ -1758,9 +1856,7 @@ function calculateNightResult(roomCode) {
         const target = room.players.find(p => p.id === kahinTarget);
         const visitorRoles = Object.entries(actions)
             .filter(([actorId, act]) => act.targetId === kahinTarget && !act.noVisit && actorId !== kahinActor.id)
-            .map(([actorId]) => room.players.find(p => p.id === actorId))
-            .filter(p => p)
-            .map(p => p.role)
+            .map(([actorId, act]) => getActionRole(actorId, act))
             .filter((role, index, roles) => roles.indexOf(role) === index);
         const reportText = visitorRoles.length > 0
             ? `🔮 ${target ? target.username : 'Hedef'} kişisinin evine gelen roller: ${visitorRoles.join(', ')}`

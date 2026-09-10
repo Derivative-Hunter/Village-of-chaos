@@ -698,7 +698,7 @@
             <div class="role-category hain">
                 <h5>👹 Hain Takımı · Destekçi Hainler</h5>
                 <div class="setting-grid">
-                    <div class="setting-item"><label>Rol sayısı (Suikastçi / Gölge / Susturucu / Büyücü / Duyucu):</label><input type="number" id="cfg-destekci-hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                    <div class="setting-item"><label>Rol sayısı (Suikastçi / Gölge / Susturucu / Necromancer / Büyücü / Duyucu):</label><input type="number" id="cfg-destekci-hain" value="0" min="0" max="6" onchange="emitSettings()"></div>
                 </div>
             </div>
             <div class="role-category hain">
@@ -770,6 +770,7 @@
                 <div class="setting-item"><label>Suikastçi</label><input type="number" id="cfg-role-suikastci" data-role="Suikastçi" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Gölge Ajanı</label><input type="number" id="cfg-role-golge" data-role="Gölge Ajanı" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Susturucu</label><input type="number" id="cfg-role-susturucu" data-role="Susturucu" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Necromancer</label><input type="number" id="cfg-role-necromancer" data-role="Necromancer" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Büyücü Hain</label><input type="number" id="cfg-role-buyucu" data-role="Büyücü Hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Duyucu Hain</label><input type="number" id="cfg-role-duyucu" data-role="Duyucu Hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Kundakçı</label><input type="number" id="cfg-role-kundakci" data-role="Kundakçı" value="0" min="0" max="5" onchange="emitSettings()"></div>
@@ -856,6 +857,11 @@
             <select id="wizard-target-select" aria-label="Yönlendirilecek hedef"></select>
             <button class="btn-action-pink" onclick="useWizardPower()">🪄 Gücü Kullan</button>
         </div>
+        <div id="necromancer-tools" class="night-role-tools hidden">
+            <select id="necromancer-source-select" aria-label="Ölü rolden güç seç"></select>
+            <select id="necromancer-target-select" aria-label="Gücün yönlendirileceği hedef"></select>
+            <button class="btn-action-pink" onclick="useNecromancerPower()">💀 Ölü Rolü Kullan</button>
+        </div>
         <div id="duyucu-tools" class="night-role-tools hidden">
             <button class="btn-action-purple" onclick="setDuyucuChatMode('hainler')">👹 Hainlerle Konuş</button>
             <button class="btn-action-purple" onclick="setDuyucuChatMode('ölüler')">💀 Ölülerle Konuş</button>
@@ -922,6 +928,7 @@
             <option value="Suikastçi">Suikastçi</option>
             <option value="Gölge Ajanı">Gölge Ajanı</option>
             <option value="Susturucu">Susturucu</option>
+            <option value="Necromancer">Necromancer</option>
             <option value="Büyücü Hain">Büyücü Hain</option>
             <option value="Duyucu Hain">Duyucu Hain</option>
             <option value="Hain Köylü">Hain Köylü</option>
@@ -965,6 +972,7 @@
         <div class="role-list-item evil"><strong>🌑 Gölge Ajanı:</strong> Gece bir oyuncunun rolünü öğrenir; sabah yalnızca kendi evinin üstünde bu rolü görür.</div>
         <div class="role-list-item evil"><strong>🎯 Suikastçi:</strong> Gündüz bir oyuncunun rolünü doğru tahmin ederse onu öldürür; yanlış tahmin ederse kendisi ölür. Hain saldırı gücü yalnızca Seri Katil ile karşılıklı saldırıda üstün gelir.</div>
         <div class="role-list-item evil"><strong>🤐 Susturucu:</strong> Silahı taşıdığı zaman saldırır; taşımadığı zaman gece bir oyuncuyu ertesi gün susturur.</div>
+        <div class="role-list-item evil"><strong>💀 Necromancer:</strong> Silahı yoksa ölü havuzundaki uygun bir rolün gücünü yaşayan bir hedefe yönlendirir. Vigilante ve Ninja Hain'in kullanılmamış haklarını tüketir; araştırma bilgileri yalnızca Necromancer'a gelir.</div>
         <div class="role-list-item evil"><strong>🪄 Büyücü Hain:</strong> Gece bir rolün gücünü ele geçirip başka bir hedefe kullandırır. Kontrol edilen rol o gece eylem yapamaz; Kundakçı kontrol edilemez.</div>
         <div class="role-list-item evil"><strong>👂 Duyucu Hain:</strong> Gündüz fısıltılarını görür. Gece hainlerle veya ölülerle konuşabilir; ölüler onu Gizemli Hain olarak görür.</div>
         <div class="role-list-item evil"><strong>🎭 Hain Köylü:</strong> Rastgele bir köy rolüyle oynar ve o rolün normal yeteneğini kullanır; Düzenbaz Köylü veya Avcı Köylü de olabilir. Hain takımındadır ve silah alamaz. Vigilante olursa 2 mermisi vardır ve masum vurduğunda ölmez; hain takımında tek kaldığında üç gün dayanırsa kazanır.</div>
@@ -1178,7 +1186,7 @@
         myRole = role;
         const badge = document.getElementById('my-role-badge');
         badge.innerText = role;
-        if (isHain || (role && ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'].includes(role))) {
+        if (isHain || (role && ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'].includes(role))) {
             badge.className = 'role-pill Hain';
         } else if (['Seri Katil', 'Jester', 'Hırsız', 'Kundakçı', 'Müttefik'].includes(role)) {
             badge.className = 'role-pill Neutral';
@@ -1194,7 +1202,7 @@
         loadNotes();
     });
 
-    socket.on('gameStateUpdate', ({ players, wizardTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses }) => {
+    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses }) => {
         latestPlayers = players;
         const phaseTitle = document.getElementById('phase-title');
         const phaseSubtext = document.getElementById('phase-subtext');
@@ -1204,6 +1212,7 @@
         const vigilantePassBtn = document.getElementById('vigilante-pass-btn');
         const nightActionPassBtn = document.getElementById('night-action-pass-btn');
         const wizardTools = document.getElementById('wizard-tools');
+        const necromancerTools = document.getElementById('necromancer-tools');
         const duyucuTools = document.getElementById('duyucu-tools');
         const duyucuLoverChatBtn = document.getElementById('duyucu-lover-chat-btn');
         const loverTools = document.getElementById('lover-tools');
@@ -1219,6 +1228,7 @@
         vigilantePassBtn.classList.add('hidden');
         nightActionPassBtn.classList.add('hidden');
         wizardTools.classList.add('hidden');
+        necromancerTools.classList.add('hidden');
         duyucuTools.classList.add('hidden');
         duyucuLoverChatBtn.classList.add('hidden');
         loverTools.classList.add('hidden');
@@ -1253,6 +1263,10 @@
             if (myRole === 'Büyücü Hain' && amIAlive && !hasGun) {
                 setupWizardTools(wizardTargets, players);
                 wizardTools.classList.remove('hidden');
+            }
+            if (myRole === 'Necromancer' && amIAlive && !hasGun) {
+                setupNecromancerTools(necromancerTargets, players);
+                necromancerTools.classList.remove('hidden');
             }
             if (myRole === 'Duyucu Hain' && amIAlive) {
                 duyucuTools.classList.remove('hidden');
@@ -1298,9 +1312,9 @@
                     } else if (phase === 'NIGHT') {
                         const canUseAttack = ((roleName) => {
                             if (!roleName) return false;
-                            const attackRoleSet = new Set(['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain', 'Kayıp Hain', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain']);
+                            const attackRoleSet = new Set(['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain', 'Kayıp Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain']);
                             if (!attackRoleSet.has(roleName)) return false;
-                            if (['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain'].includes(roleName)) return Boolean(hasGun);
+                            if (['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain'].includes(roleName)) return Boolean(hasGun);
                             if (['Gizleyici', 'Düz Hain', 'Suikastçi', 'Ninja Hain', 'Kayıp Hain'].includes(roleName)) return Boolean(hasGun) || roleName === 'Suikastçi' || roleName === 'Kayıp Hain';
                             return true;
                         })(myRole);
@@ -1309,7 +1323,7 @@
                             let btnLabel = '🎯 Eylem';
                             if (myRole === 'Doktor' || myRole === 'Melek') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
                             else if (myRole === 'Müttefik') btnLabel = dayNumber === 1 ? '🤝 Müttefikini Seç' : '🛡️ Müttefikini Koru';
-                            else if (['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain', 'Kayıp Hain'].includes(myRole) || (myRole === 'Büyücü Hain' && hasGun)) btnLabel = '🎯 Saldır';
+                            else if (['Seri Katil', 'Gizleyici', 'Düz Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain', 'Kayıp Hain'].includes(myRole) || (['Necromancer', 'Büyücü Hain'].includes(myRole) && hasGun)) btnLabel = '🎯 Saldır';
                             else if (myRole === 'Gölge Ajanı') btnLabel = hasGun ? '🎯 Saldır' : '🌑 Rolünü Öğren';
                             else if (myRole === 'Kahin Köylü') btnLabel = '🔮 İncele';
                             else if (myRole === 'Tuzakçı Köylü') btnLabel = '🪤 Tuzak Kur';
@@ -1342,6 +1356,8 @@
                                 }
                             } else if (myRole === 'Duyucu Hain' && !hasGun) {
                                 actionBtnHtml = '';
+                            } else if (myRole === 'Necromancer' && !hasGun) {
+                                actionBtnHtml = '';
                             } else if (myRole === 'Büyücü Hain' && !hasGun) {
                                 actionBtnHtml = '';
                             } else if (myRole === 'Düz Hain' && !hasGun) {
@@ -1349,7 +1365,7 @@
                             } else if (!isMe || myRole === 'Doktor' || myRole === 'Melek' || (myRole === 'Müttefik' && (dayNumber === 1 || allyTargetId === p.id))) {
                                 if (myRole === 'Müttefik' && dayNumber > 1 && (allyTargetId !== p.id || allyProtectUses >= 2)) {
                                     actionBtnHtml = '';
-                                } else if (canUseAttack || !['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Büyücü Hain', 'Düz Hain'].includes(myRole)) {
+                                } else if (canUseAttack || !['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Düz Hain'].includes(myRole)) {
                                     actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">${btnLabel}</button>`;
                                 }
                             }
@@ -1446,6 +1462,23 @@
         const targetId = document.getElementById('wizard-target-select').value;
         if (!powerRole || !targetId) return;
         socket.emit('wizardAction', { roomCode: currentRoomCode, powerRole, targetId });
+    }
+
+    function setupNecromancerTools(sourceRoles, players) {
+        const sourceSelect = document.getElementById('necromancer-source-select');
+        const targetSelect = document.getElementById('necromancer-target-select');
+        sourceSelect.innerHTML = sourceRoles.length
+            ? sourceRoles.map(source => `<option value="${source.id}">${source.role} (${source.username})</option>`).join('')
+            : '<option value="">Kullanılabilir ölü rol yok</option>';
+        targetSelect.innerHTML = players.filter(player => player.isAlive)
+            .map(player => `<option value="${player.id}">${player.username}</option>`).join('');
+    }
+
+    function useNecromancerPower() {
+        const sourceId = document.getElementById('necromancer-source-select').value;
+        const targetId = document.getElementById('necromancer-target-select').value;
+        if (!sourceId || !targetId) return;
+        socket.emit('necromancerAction', { roomCode: currentRoomCode, sourceId, targetId });
     }
 
     function setDuyucuChatMode(mode) {
