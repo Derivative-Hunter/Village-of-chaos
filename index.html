@@ -1275,7 +1275,7 @@
             let hirsizBtnHtml = '';
             let loverProtectBtnHtml = '';
 
-            if (amIAlive || hunterStand || myRole === 'Melek') {
+            if (amIAlive || hunterStand || (myRole === 'Melek' && !amIAlive && phase === 'NIGHT')) {
                 if (p.isAlive && !isMe && phase !== 'NIGHT') {
                     whisperBtnHtml = `<button class="card-btn btn-action-purple" onclick="handleWhisper('${p.id}')">💬 Fısılda</button>`;
                 }
@@ -1305,7 +1305,7 @@
                             return true;
                         })(myRole);
 
-                        if ((amIAlive || myRole === 'Melek') && !['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
+                        if (((amIAlive && myRole !== 'Melek') || (myRole === 'Melek' && !amIAlive)) && !['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
                             let btnLabel = '🎯 Eylem';
                             if (myRole === 'Doktor' || myRole === 'Melek') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
                             else if (myRole === 'Müttefik') btnLabel = dayNumber === 1 ? '🤝 Müttefikini Seç' : '🛡️ Müttefikini Koru';

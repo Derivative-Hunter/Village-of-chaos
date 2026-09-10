@@ -854,6 +854,7 @@ io.on('connection', (socket) => {
             if (['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Avcı Köylü'].includes(actor.role)) return;
             if (actor.role === 'Hırsız') return socket.emit('errorMsg', 'Hırsız gece eylemi yapamaz!');
             if (actor.role === 'Melek') {
+                if (actor.isAlive) return socket.emit('errorMsg', 'Melek yalnızca öldükten sonra koruma yapabilir!');
                 const target = room.players.find(player => player.id === targetId && player.isAlive);
                 if (!target) return socket.emit('errorMsg', 'Melek yalnızca yaşayan bir oyuncuyu koruyabilir!');
             }
@@ -1462,6 +1463,7 @@ function calculateNightResult(roomCode) {
             killPerformerIds.add(actorId);
         }
         else if (actor.role === 'Doktor' || actor.role === 'Melek') {
+            if (actor.role === 'Melek' && actor.isAlive) return;
             const target = room.players.find(player => player.id === act.targetId && player.isAlive);
             if (!target) return;
             docTarget = target.id;
