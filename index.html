@@ -1192,6 +1192,7 @@
 
     socket.on('yourRole', ({ role, isHain }) => {
         myRole = role;
+        document.getElementById('carrier-tools')?.classList.add('hidden');
         const badge = document.getElementById('my-role-badge');
         badge.innerText = role;
         if (isHain || (role && ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'].includes(role))) {
@@ -1412,6 +1413,7 @@
             const allyTargetTag = p.isAllyTarget ? `<span style="font-size:10px; color:#22c55e; font-weight:bold;">[🤝 MÜTTEFİKİN]</span>` : '';
             const baskanTag = p.isRevealed ? `<span style="font-size:10px; color:#eab308; font-weight:bold;">[👑 BAŞKAN]</span>` : '';
             const dousedTag = p.isDoused ? `<span style="font-size:10px; color:#f97316; font-weight:bold;">[🔥 EVİ YAĞLANDI]</span>` : '';
+            const sickTag = p.isSick ? `<span style="font-size:10px; color:#a855f7; font-weight:bold;">[🦠 HASTALIKLI]</span>` : '';
 
             grid.innerHTML += `
                 <div class="player-card ${!p.isAlive ? 'dead' : ''} ${isSelected ? 'selected' : ''} ${isAllyTraitor ? 'traitor-ally' : ''}" data-id="${p.id}">
@@ -1423,6 +1425,7 @@
                         ${allyTargetTag}
                         ${baskanTag}
                         ${dousedTag}
+                        ${sickTag}
                         ${roleTagHtml}
                     </div>
                     <div style="width: 100%;">

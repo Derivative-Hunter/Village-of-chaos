@@ -385,7 +385,6 @@ function transformCarrier(room, carrier, newRole) {
     if (newRole === 'Ninja Hain') carrier.ninjaUsed = false;
     assignGuns(room);
     io.to(carrier.id).emit('yourRole', { role: carrier.role, isHain: carrier.isHain });
-    io.to(room.code).emit('systemAnnounce', `[SİSTEM] ${carrier.username} Taşıyıcı dönüşümünü tamamladı ve ${newRole} oldu.`);
     return true;
 }
 
@@ -407,6 +406,7 @@ function sendGameState(roomCode) {
                 isAllyTarget: player.role === 'Müttefik' && player.allyTargetId === p.id,
                 isRevealed: p.isRevealed,
                 isDoused: player.role === 'Kundakçı' && p.isDoused,
+                isSick: player.role === CARRIER_ROLE && p.isSick,
                     shadowRole: player.shadowRole && player.shadowRole.targetId === p.id ? player.shadowRole.role : null
             };
         });
