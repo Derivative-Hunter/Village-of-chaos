@@ -134,6 +134,14 @@ function canUseAdditionalNightAction(actor, requestedActionType, existingNightAc
     return true;
 }
 
+function canUseAllyProtection(actor, target, dayNumber) {
+    if (!actor || actor.role !== 'Müttefik' || actor.allyProtectDisabled) return false;
+    if (!target || !target.isAlive) return false;
+    if (!actor.isAlive && target.id === actor.id) return false;
+    if (dayNumber > 1 && actor.allyTargetId !== target.id) return false;
+    return actor.allyProtectUses < 2;
+}
+
 function createBotPlayer(index) {
     return {
         id: `bot-${index}`,
@@ -362,7 +370,8 @@ function sendGameState(roomCode) {
             loverPartnerId: player.loverPartnerId,
             loverProtectUsed: player.loverProtectUsed || room.loverShieldUsed,
             allyTargetId: player.role === 'Müttefik' ? player.allyTargetId : null,
-            allyProtectUses: player.role === 'Müttefik' ? player.allyProtectUses : 0
+            allyProtectUses: player.role === 'Müttefik' ? player.allyProtectUses : 0,
+            allyProtectDisabled: player.role === 'Müttefik' && player.allyProtectDisabled
         });
     });
 }
@@ -584,6 +593,12 @@ io.on('connection', (socket) => {
             idx++;
         }
 
+        room.players.forEach(player => {
+            player.allyTargetId = null;
+            player.allyProtectUses = 0;
+            player.allyProtectDisabled = false;
+        });
+
         assignLovers(room, cfg.asikCount);
         assignGuns(room);
 
@@ -670,8 +685,10 @@ io.on('connection', (socket) => {
         actor.role = stolenRole;
         actor.isHain = Boolean(target.isHain);
         if (stolenRole === 'Müttefik') {
-            actor.allyTargetId = target.allyTargetId === target.id ? actor.id : target.allyTargetId;
-            actor.allyProtectUses = target.allyProtectUses;
+            target.allyProtectDisabled = true;
+            actor.allyTargetId = null;
+            actor.allyProtectUses = 0;
+            actor.allyProtectDisabled = true;
         }
         actor.ammo = stolenRole === 'Vigilante' && actor.isHain ? 2 : (stolenRole === 'Vigilante' ? 2 : 0);
         actor.hasGun = false;
@@ -726,6 +743,7 @@ io.on('connection', (socket) => {
         }
 
         if (!sender.isAlive) {
+            if (sender.role === 'Müttefik') return socket.emit('errorMsg', 'Ölü Müttefik yalnızca gece koruma yapabilir.');
             const deads = room.players.filter(p => !p.isAlive);
             deads.forEach(p => io.to(p.id).emit('chatMessage', { sender: sender.username, text, type: 'dead' }));
             
@@ -848,7 +866,10 @@ io.on('connection', (socket) => {
         if (!room || room.phase !== 'NIGHT') return;
 
         const actor = room.players.find(p => p.id === socket.id);
-        if (actor && (actor.isAlive || actor.role === 'Melek')) {
+        if (actor && (actor.isAlive || actor.role === 'Melek' || actor.role === 'Müttefik')) {
+            if (!actor.isAlive && actor.role === 'Müttefik' && actionType !== 'ALLY_PROTECT') {
+                return socket.emit('errorMsg', 'Ölü Müttefik yalnızca müttefikini koruyabilir!');
+            }
             if (actionType === 'PASS') {
                 const existingAction = room.nightActions[socket.id];
                 if (actor.role === 'Jester' && existingAction?.actionType === 'JESTER_SHIELD') {
@@ -870,7 +891,10 @@ io.on('connection', (socket) => {
             }
             if (actor.role === 'Müttefik') {
                 const target = room.players.find(player => player.id === targetId && player.isAlive);
+                if (actionType && actionType !== 'ALLY_PROTECT') return socket.emit('errorMsg', 'Müttefik yalnızca koruma yapabilir!');
                 if (!target) return socket.emit('errorMsg', 'Yalnızca yaşayan bir oyuncuyu seçebilirsin!');
+                if (actor.allyProtectDisabled) return socket.emit('errorMsg', 'Bu Müttefik rolü Hırsız tarafından alındığı için koruma yapamaz!');
+                if (!actor.isAlive && target.id === actor.id) return socket.emit('errorMsg', 'Ölü Müttefik kendini koruyamaz!');
                 if (room.dayNumber === 1 && actor.allyTargetId) return socket.emit('errorMsg', 'Müttefikini zaten seçtin!');
                 if (room.dayNumber > 1 && (!actor.allyTargetId || actor.allyTargetId !== targetId)) {
                     return socket.emit('errorMsg', 'Yalnızca seçtiğin müttefikini koruyabilirsin!');
@@ -1569,7 +1593,9 @@ function calculateNightResult(roomCode) {
         }
         else if (actor.role === 'Müttefik') {
             const target = room.players.find(player => player.id === act.targetId && player.isAlive);
-            if (!target || actor.allyProtectUses >= 2) return;
+            if (act.actionType && act.actionType !== 'ALLY_PROTECT') return;
+            if (!target || actor.allyProtectDisabled || actor.allyProtectUses >= 2) return;
+            if (!actor.isAlive && target.id === actor.id) return;
             if (room.dayNumber > 1 && actor.allyTargetId !== target.id) return;
             actor.allyTargetId = target.id;
             if (room.dayNumber > 1) actor.allyProtectUses++;
@@ -2051,6 +2077,7 @@ if (require.main === module) {
 module.exports = {
     buildWizardMorningMessage,
     canUseAdditionalNightAction,
+    canUseAllyProtection,
     getAdditionalWinners,
     withAdditionalWinners,
     hasHainMajority,

@@ -982,7 +982,7 @@
         <div class="role-list-item neutral"><strong>🔪 Seri Katil:</strong> Her gece bir oyuncuya saldırır ve diğer tehditler yokken çoğunluğa ulaşarak kazanmaya çalışır. Silahlı Hain ile karşılıklı saldırıda önceliği vardır.</div>
         <div class="role-list-item neutral"><strong>🔥 Kundakçı:</strong> Geceleri bir oyuncuyu gizlice yağlar; yağlanan evleri ve o evlere gidenleri ateşe verir. Yağlarken gelen Seri Katil veya Gizleyici saldırısı Kundakçıyı öldürür; Kundakçı yakıyorsa karşılıklı saldırıda hayatta kalır ve Gizleyici veya Seri Katil ölür.</div>
         <div class="role-list-item neutral"><strong>🎭 Hırsız:</strong> Gündüz yaşayan bir oyuncuyu öldürür ve onun rolünü çalar.</div>
-        <div class="role-list-item neutral"><strong>🤝 Müttefik:</strong> İlk gece bir oyuncu seçer; seçim yapmazsa rastgele bir oyuncu belirlenir. Seçtiği kişiyi ilk gece dahil toplam iki kez saldırılardan korur. Müttefiki oyun sonunda hayattaysa kendisi de kazanır.</div>
+        <div class="role-list-item neutral"><strong>🤝 Müttefik:</strong> İlk gece bir oyuncu seçer; seçim yapmazsa rastgele bir oyuncu belirlenir. Seçtiği kişiyi ilk gece dahil toplam iki kez saldırılardan korur. Öldükten sonra da yalnızca seçtiği kişiyi koruyabilir; kendisini koruyamaz. Rolü Hırsız tarafından alınırsa koruma yapamaz. Müttefiki oyun sonunda hayattaysa kendisi de kazanır.</div>
         <button class="btn-gold" style="margin-top: 15px;" onclick="closeRoleModal()">Kapat</button>
     </div>
 </div>
@@ -1202,7 +1202,7 @@
         loadNotes();
     });
 
-    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses }) => {
+    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled }) => {
         latestPlayers = players;
         const phaseTitle = document.getElementById('phase-title');
         const phaseSubtext = document.getElementById('phase-subtext');
@@ -1289,8 +1289,9 @@
             let hirsizBtnHtml = '';
             let loverProtectBtnHtml = '';
 
-            if (amIAlive || hunterStand || (myRole === 'Melek' && !amIAlive && phase === 'NIGHT')) {
-                if (p.isAlive && !isMe && phase !== 'NIGHT') {
+            const canDeadAllyProtect = !amIAlive && myRole === 'Müttefik' && !allyProtectDisabled && phase === 'NIGHT';
+            if (amIAlive || hunterStand || (myRole === 'Melek' && !amIAlive && phase === 'NIGHT') || canDeadAllyProtect) {
+                if (p.isAlive && !isMe && phase !== 'NIGHT' && (amIAlive || myRole === 'Melek')) {
                     whisperBtnHtml = `<button class="card-btn btn-action-purple" onclick="handleWhisper('${p.id}')">💬 Fısılda</button>`;
                 }
 
@@ -1319,7 +1320,7 @@
                             return true;
                         })(myRole);
 
-                        if (((amIAlive && myRole !== 'Melek') || (myRole === 'Melek' && !amIAlive)) && !['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
+                        if (((amIAlive && myRole !== 'Melek') || (myRole === 'Melek' && !amIAlive) || canDeadAllyProtect) && !['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
                             let btnLabel = '🎯 Eylem';
                             if (myRole === 'Doktor' || myRole === 'Melek') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
                             else if (myRole === 'Müttefik') btnLabel = dayNumber === 1 ? '🤝 Müttefikini Seç' : '🛡️ Müttefikini Koru';
@@ -1362,11 +1363,14 @@
                                 actionBtnHtml = '';
                             } else if (myRole === 'Düz Hain' && !hasGun) {
                                 actionBtnHtml = '';
-                            } else if (!isMe || myRole === 'Doktor' || myRole === 'Melek' || (myRole === 'Müttefik' && (dayNumber === 1 || allyTargetId === p.id))) {
+                            } else if (!isMe || myRole === 'Doktor' || myRole === 'Melek' || (myRole === 'Müttefik' && (dayNumber === 1 || allyTargetId === p.id) && (amIAlive || !isMe))) {
                                 if (myRole === 'Müttefik' && dayNumber > 1 && (allyTargetId !== p.id || allyProtectUses >= 2)) {
                                     actionBtnHtml = '';
+                                } else if (myRole === 'Müttefik' && !amIAlive && p.id === socket.id) {
+                                    actionBtnHtml = '';
                                 } else if (canUseAttack || !['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Düz Hain'].includes(myRole)) {
-                                    actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}')">${btnLabel}</button>`;
+                                    const allyActionType = myRole === 'Müttefik' ? ', \'ALLY_PROTECT\'' : '';
+                                    actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}'${allyActionType})">${btnLabel}</button>`;
                                 }
                             }
                         }
