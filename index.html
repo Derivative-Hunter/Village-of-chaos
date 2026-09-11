@@ -1292,7 +1292,7 @@
             if (myRole === 'Vigilante' && amIAlive) vigilantePassBtn.classList.remove('hidden');
             if ((myRole === 'Jester' || myRole === 'Müttefik') && amIAlive) nightActionPassBtn.classList.remove('hidden');
         }
-        if (phase === 'DAY' && myRole === 'Taşıyıcı (Hastalıklı)' && carrierRoleOptions && carrierRoleOptions.length > 0) {
+        if ((phase === 'DAY' || phase === 'VOTE') && myRole === 'Taşıyıcı (Hastalıklı)' && carrierRoleOptions && carrierRoleOptions.length > 0) {
             setupCarrierTools(carrierRoleOptions);
         }
 

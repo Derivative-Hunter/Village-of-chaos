@@ -356,10 +356,11 @@ function spreadSickness(room) {
 }
 
 function prepareCarrierTransformation(room) {
-    const carrier = room.players.find(player => player.role === CARRIER_ROLE && player.isAlive);
+    const carrier = room.players.find(player => player.role === CARRIER_ROLE);
     if (!carrier) return;
     const livingPlayers = room.players.filter(player => player.isAlive);
     if (!livingPlayers.length || !livingPlayers.every(player => player.isSick)) return;
+    if (carrier.carrierRoleOptions?.length > 0) return;
     carrier.carrierRoleOptions = getUnusedRoleOptions(room);
     if (carrier.carrierRoleOptions.length > 0) {
         io.to(carrier.id).emit('carrierRoleChoice', { roles: carrier.carrierRoleOptions });
@@ -367,7 +368,7 @@ function prepareCarrierTransformation(room) {
 }
 
 function transformCarrier(room, carrier, newRole) {
-    if (!carrier || carrier.role !== CARRIER_ROLE || !carrier.isAlive) return false;
+    if (!carrier || carrier.role !== CARRIER_ROLE) return false;
     const options = carrier.carrierRoleOptions || [];
     if (!options.includes(newRole)) return false;
 
@@ -736,6 +737,7 @@ io.on('connection', (socket) => {
         }
 
         propagateLoverDeaths(room);
+        prepareCarrierTransformation(room);
         sendGameState(code);
         checkWinCondition(code);
     });
@@ -769,6 +771,10 @@ io.on('connection', (socket) => {
             actor.allyProtectDisabled = false;
             target.allyProtectDisabled = true;
         }
+        if (stolenRole === CARRIER_ROLE) {
+            actor.isSick = target.isSick;
+            actor.carrierRoleOptions = target.carrierRoleOptions || [];
+        }
         actor.ammo = stolenRole === 'Vigilante' && actor.isHain ? 2 : (stolenRole === 'Vigilante' ? 2 : 0);
         actor.hasGun = false;
         if (target.isDoused) {
@@ -777,6 +783,7 @@ io.on('connection', (socket) => {
             io.to(actor.id).emit('chatMessage', { sender: '[KUNDAKÇI]', text: '🔥 Çaldığın kişinin evi yağlanmıştı! Artık yağlandığını biliyorsun.', type: 'green' });
         }
         assignGuns(room);
+        prepareCarrierTransformation(room);
         io.to(actor.id).emit('yourRole', { role: actor.role, isHain: actor.isHain });
         io.to(actor.id).emit('systemAnnounce', `[SİSTEM] 🎭 ${target.username} adlı kişinin rolünü çaldın! Yeni rolün: ${stolenRole}`);
 
@@ -789,7 +796,7 @@ io.on('connection', (socket) => {
         const code = (roomCode || socket.roomCode || '').trim().toUpperCase();
         const room = rooms[code];
         const carrier = room && room.players.find(player => player.id === socket.id);
-        if (!room || room.phase !== 'DAY' || !carrier) return;
+        if (!room || (room.phase !== 'DAY' && room.phase !== 'VOTE') || !carrier) return;
         if (!transformCarrier(room, carrier, role)) return socket.emit('errorMsg', 'Bu rol Taşıyıcı için kullanılabilir değil!');
         sendGameState(code);
         checkWinCondition(code);
@@ -1133,6 +1140,8 @@ function startPhase(roomCode, phase, seconds) {
     }
     room.phase = phase;
     room.timeLeft = phase === 'DAY' && room.hunterStand ? seconds + 20 : seconds;
+
+    if (phase === 'DAY' || phase === 'VOTE') prepareCarrierTransformation(room);
 
     if (phase === 'DAY') {
         room.players.forEach(player => {
