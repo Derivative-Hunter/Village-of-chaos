@@ -28,7 +28,7 @@ const ROLE_CATEGORIES = {
     },
     neutral: {
         'Silahlı Tarafsızlar': ['Kundakçı', 'Seri Katil'],
-        'Normal Tarafsızlar': ['Jester', 'Hırsız', 'Müttefik']
+        'Normal Tarafsızlar': ['Jester', 'Hırsız', 'Müttefik', 'Taşıyıcı (Hastalıklı)']
     }
 };
 
@@ -36,10 +36,11 @@ const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı',
 const NECROMANCER_SOURCE_ROLES = ['Doktor', 'Uyutucu', 'Tuzakçı Köylü', 'Vigilante', 'Düzenbaz Köylü', 'Ayakçı', 'Gözcü', 'Kahin Köylü', 'Ninja Hain', 'Kayıp Hain', 'Gölge Ajanı', 'Susturucu', 'Seri Katil'];
 const LOST_HAIN_ROLE = 'Kayıp Hain';
 const HAIN_KOYLU_ROLE = 'Hain Köylü';
+const CARRIER_ROLE = 'Taşıyıcı (Hastalıklı)';
 const isHainPlayer = player => Boolean(player && (player.isHain || ALL_HAIN_ROLES.includes(player.role)));
 const isCountedHain = player => Boolean(isHainPlayer(player) && player.role !== LOST_HAIN_ROLE);
 const NON_VISITING_ROLES = ['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Jester'];
-const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', 'Jester', 'Hırsız', 'Müttefik'];
+const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', 'Jester', 'Hırsız', 'Müttefik', CARRIER_ROLE];
 
 const roleNames = group => Object.values(group).flat();
 const TOWN_ROLES = ['Düz Köylü', ...roleNames(ROLE_CATEGORIES.town)];
@@ -167,7 +168,9 @@ function createBotPlayer(index) {
         loverPartnerId: null,
         loverProtectUsed: false,
         allyTargetId: null,
-        allyProtectUses: 0
+            allyProtectUses: 0,
+            isSick: false,
+            carrierRoleOptions: []
     };
 }
 
@@ -320,6 +323,72 @@ function assignGuns(room) {
     }
 }
 
+function getUnusedRoleOptions(room) {
+    const usedRoles = new Set(room.players.map(player => player.role).filter(Boolean));
+    return CONFIGURABLE_ROLE_NAMES.filter(roleName => roleName !== CARRIER_ROLE && !usedRoles.has(roleName));
+}
+
+function spreadSickness(room) {
+    const actions = room.nightActions || {};
+    const playersById = new Map(room.players.map(player => [player.id, player]));
+    const visitorsByTarget = new Map();
+    const queue = room.players.filter(player => player.isSick).map(player => player.id);
+    const infected = new Set(queue);
+
+    Object.entries(actions).forEach(([actorId, action]) => {
+        if (!action || action.noVisit || action.blockedByTrap || !action.targetId || action.targetId === 'IGNITE') return;
+        if (!visitorsByTarget.has(action.targetId)) visitorsByTarget.set(action.targetId, []);
+        visitorsByTarget.get(action.targetId).push(actorId);
+    });
+
+    while (queue.length > 0) {
+        const sickId = queue.shift();
+        const visited = actions[sickId]?.targetId;
+        const relatedIds = [visited, ...(visitorsByTarget.get(sickId) || [])];
+        relatedIds.filter(Boolean).forEach(playerId => {
+            const player = playersById.get(playerId);
+            if (!player || infected.has(playerId)) return;
+            player.isSick = true;
+            infected.add(playerId);
+            queue.push(playerId);
+        });
+    }
+}
+
+function prepareCarrierTransformation(room) {
+    const carrier = room.players.find(player => player.role === CARRIER_ROLE && player.isAlive);
+    if (!carrier) return;
+    const livingPlayers = room.players.filter(player => player.isAlive);
+    if (!livingPlayers.length || !livingPlayers.every(player => player.isSick)) return;
+    carrier.carrierRoleOptions = getUnusedRoleOptions(room);
+    if (carrier.carrierRoleOptions.length > 0) {
+        io.to(carrier.id).emit('carrierRoleChoice', { roles: carrier.carrierRoleOptions });
+    }
+}
+
+function transformCarrier(room, carrier, newRole) {
+    if (!carrier || carrier.role !== CARRIER_ROLE || !carrier.isAlive) return false;
+    const options = carrier.carrierRoleOptions || [];
+    if (!options.includes(newRole)) return false;
+
+    carrier.role = newRole;
+    carrier.carrierRoleOptions = [];
+    carrier.isHain = ALL_HAIN_ROLES.includes(newRole);
+    carrier.isSick = true;
+    carrier.hasGun = false;
+    carrier.ammo = newRole === 'Vigilante' ? 2 : 0;
+    if (newRole === 'Müttefik') {
+        carrier.allyTargetId = carrier.id;
+        carrier.allyProtectUses = 0;
+        carrier.allyProtectDisabled = false;
+    }
+    if (newRole === 'Ninja Hain') carrier.ninjaUsed = false;
+    assignGuns(room);
+    io.to(carrier.id).emit('yourRole', { role: carrier.role, isHain: carrier.isHain });
+    io.to(room.code).emit('systemAnnounce', `[SİSTEM] ${carrier.username} Taşıyıcı dönüşümünü tamamladı ve ${newRole} oldu.`);
+    return true;
+}
+
 function sendGameState(roomCode) {
     const room = rooms[roomCode];
     if (!room) return;
@@ -338,7 +407,7 @@ function sendGameState(roomCode) {
                 isAllyTarget: player.role === 'Müttefik' && player.allyTargetId === p.id,
                 isRevealed: p.isRevealed,
                 isDoused: player.role === 'Kundakçı' && p.isDoused,
-                shadowRole: player.shadowRole && player.shadowRole.targetId === p.id ? player.shadowRole.role : null
+                    shadowRole: player.shadowRole && player.shadowRole.targetId === p.id ? player.shadowRole.role : null
             };
         });
 
@@ -371,7 +440,9 @@ function sendGameState(roomCode) {
             loverProtectUsed: player.loverProtectUsed || room.loverShieldUsed,
             allyTargetId: player.role === 'Müttefik' ? player.allyTargetId : null,
             allyProtectUses: player.role === 'Müttefik' ? player.allyProtectUses : 0,
-            allyProtectDisabled: player.role === 'Müttefik' && player.allyProtectDisabled
+            allyProtectDisabled: player.role === 'Müttefik' && player.allyProtectDisabled,
+            isSick: player.isSick,
+            carrierRoleOptions: player.role === CARRIER_ROLE ? player.carrierRoleOptions : []
         });
     });
 }
@@ -445,7 +516,9 @@ io.on('connection', (socket) => {
                 loverPartnerId: null,
                 loverProtectUsed: false,
                 allyTargetId: null,
-                allyProtectUses: 0
+                    allyProtectUses: 0,
+                    isSick: false,
+                    carrierRoleOptions: []
         };
         rooms[roomCode].players.push(player);
 
@@ -486,7 +559,9 @@ io.on('connection', (socket) => {
             loverPartnerId: null,
             loverProtectUsed: false,
             allyTargetId: null,
-            allyProtectUses: 0
+                allyProtectUses: 0,
+                isSick: false,
+                carrierRoleOptions: []
         };
 
         room.players.push(player);
@@ -548,6 +623,8 @@ io.on('connection', (socket) => {
             p.loverProtectUsed = false;
             p.allyTargetId = null;
             p.allyProtectUses = 0;
+            p.isSick = false;
+            p.carrierRoleOptions = [];
             p.ninjaUsed = false;
         });
         room.hunterStand = null;
@@ -597,6 +674,8 @@ io.on('connection', (socket) => {
             player.allyTargetId = null;
             player.allyProtectUses = 0;
             player.allyProtectDisabled = false;
+            player.isSick = player.role === CARRIER_ROLE;
+            player.carrierRoleOptions = [];
         });
 
         assignLovers(room, cfg.asikCount);
@@ -702,6 +781,16 @@ io.on('connection', (socket) => {
         io.to(actor.id).emit('systemAnnounce', `[SİSTEM] 🎭 ${target.username} adlı kişinin rolünü çaldın! Yeni rolün: ${stolenRole}`);
 
         propagateLoverDeaths(room);
+        sendGameState(code);
+        checkWinCondition(code);
+    });
+
+    socket.on('carrierRoleAction', ({ roomCode, role }) => {
+        const code = (roomCode || socket.roomCode || '').trim().toUpperCase();
+        const room = rooms[code];
+        const carrier = room && room.players.find(player => player.id === socket.id);
+        if (!room || room.phase !== 'DAY' || !carrier) return;
+        if (!transformCarrier(room, carrier, role)) return socket.emit('errorMsg', 'Bu rol Taşıyıcı için kullanılabilir değil!');
         sendGameState(code);
         checkWinCondition(code);
     });
@@ -1890,6 +1979,9 @@ function calculateNightResult(roomCode) {
         emitRoleActionMessage(kahinActor, reportText);
         io.to(kahinActor.id).emit('chatMessage', { sender: '[KAHİN KÖYLÜ RAPORU]', text: reportText, type: 'green' });
     }
+
+    spreadSickness(room);
+    prepareCarrierTransformation(room);
 }
 
 function checkGunPass(room, deadPlayer) {
@@ -2085,5 +2177,7 @@ module.exports = {
     buildRandomRolePool,
     pickRandomRoleSet,
     canRoleUseAttack,
-    assignGuns
+    assignGuns,
+    getUnusedRoleOptions,
+    spreadSickness
 };

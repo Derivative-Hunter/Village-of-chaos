@@ -716,7 +716,7 @@
             <div class="role-category neutral">
                 <h5>⚖️ Tarafsız · Normal Tarafsızlar</h5>
                 <div class="setting-grid">
-                    <div class="setting-item"><label>Rol sayısı (Jester / Hırsız / Müttefik):</label><input type="number" id="cfg-normal-tarafsiz" value="0" min="0" max="3" onchange="emitSettings()"></div>
+                    <div class="setting-item"><label>Rol sayısı (Jester / Hırsız / Müttefik / Taşıyıcı):</label><input type="number" id="cfg-normal-tarafsiz" value="0" min="0" max="4" onchange="emitSettings()"></div>
                 </div>
             </div>
             <div class="role-category town">
@@ -778,6 +778,7 @@
                 <div class="setting-item"><label>Jester</label><input type="number" id="cfg-role-jester" data-role="Jester" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Hırsız</label><input type="number" id="cfg-role-hirsiz" data-role="Hırsız" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Müttefik</label><input type="number" id="cfg-role-muttefik" data-role="Müttefik" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Taşıyıcı (Hastalıklı)</label><input type="number" id="cfg-role-tasiyici" data-role="Taşıyıcı (Hastalıklı)" value="0" min="0" max="1" onchange="emitSettings()"></div>
             </div>
         </div>
 
@@ -862,6 +863,10 @@
             <select id="necromancer-target-select" aria-label="Gücün yönlendirileceği hedef"></select>
             <button class="btn-action-pink" onclick="useNecromancerPower()">💀 Ölü Rolü Kullan</button>
         </div>
+        <div id="carrier-tools" class="night-role-tools hidden">
+            <select id="carrier-role-select" aria-label="Dönüşülecek rol"></select>
+            <button class="btn-action-pink" onclick="chooseCarrierRole()">🦠 Yeni Rolü Seç</button>
+        </div>
         <div id="duyucu-tools" class="night-role-tools hidden">
             <button class="btn-action-purple" onclick="setDuyucuChatMode('hainler')">👹 Hainlerle Konuş</button>
             <button class="btn-action-purple" onclick="setDuyucuChatMode('ölüler')">💀 Ölülerle Konuş</button>
@@ -938,6 +943,7 @@
             <option value="Hırsız">Hırsız</option>
             <option value="Kundakçı">Kundakçı</option>
             <option value="Müttefik">Müttefik</option>
+            <option value="Taşıyıcı (Hastalıklı)">Taşıyıcı (Hastalıklı)</option>
         </select>
         <button class="btn-danger" onclick="confirmSuikast()">Ateş Et!</button>
         <button class="btn-gold" onclick="closeSuikastModal()">İptal</button>
@@ -983,6 +989,7 @@
         <div class="role-list-item neutral"><strong>🔥 Kundakçı:</strong> Geceleri bir oyuncuyu gizlice yağlar; yağlanan evleri ve o evlere gidenleri ateşe verir. Yağlarken gelen Seri Katil veya Gizleyici saldırısı Kundakçıyı öldürür; Kundakçı yakıyorsa karşılıklı saldırıda hayatta kalır ve Gizleyici veya Seri Katil ölür.</div>
         <div class="role-list-item neutral"><strong>🎭 Hırsız:</strong> Gündüz yaşayan bir oyuncuyu öldürür ve onun rolünü çalar.</div>
         <div class="role-list-item neutral"><strong>🤝 Müttefik:</strong> İlk gece bir oyuncu seçer; seçim yapmazsa rastgele bir oyuncu belirlenir. Seçtiği kişiyi ilk gece dahil toplam iki kez saldırılardan korur. Öldükten sonra da yalnızca seçtiği kişiyi koruyabilir; kendisini koruyamaz. Rolü Hırsız tarafından alınırsa koruma yapamaz. Müttefiki oyun sonunda hayattaysa kendisi de kazanır.</div>
+        <div class="role-list-item neutral"><strong>🦠 Taşıyıcı (Hastalıklı):</strong> Oyuna hastalıklı başlar. Gece ziyaret ettiği ve kendisini ziyaret eden oyunculara hastalık bulaştırır. Tüm yaşayan oyuncular hastalandığında, oyunda olmayan bir role dönüşür.</div>
         <button class="btn-gold" style="margin-top: 15px;" onclick="closeRoleModal()">Kapat</button>
     </div>
 </div>
@@ -1188,11 +1195,15 @@
         badge.innerText = role;
         if (isHain || (role && ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'].includes(role))) {
             badge.className = 'role-pill Hain';
-        } else if (['Seri Katil', 'Jester', 'Hırsız', 'Kundakçı', 'Müttefik'].includes(role)) {
+        } else if (['Seri Katil', 'Jester', 'Hırsız', 'Kundakçı', 'Müttefik', 'Taşıyıcı (Hastalıklı)'].includes(role)) {
             badge.className = 'role-pill Neutral';
         } else {
             badge.className = 'role-pill Town';
         }
+    });
+
+    socket.on('carrierRoleChoice', ({ roles }) => {
+        setupCarrierTools(roles || []);
     });
 
     socket.on('gameStarted', () => {
@@ -1202,7 +1213,7 @@
         loadNotes();
     });
 
-    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled }) => {
+    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions }) => {
         latestPlayers = players;
         const phaseTitle = document.getElementById('phase-title');
         const phaseSubtext = document.getElementById('phase-subtext');
@@ -1213,6 +1224,7 @@
         const nightActionPassBtn = document.getElementById('night-action-pass-btn');
         const wizardTools = document.getElementById('wizard-tools');
         const necromancerTools = document.getElementById('necromancer-tools');
+        const carrierTools = document.getElementById('carrier-tools');
         const duyucuTools = document.getElementById('duyucu-tools');
         const duyucuLoverChatBtn = document.getElementById('duyucu-lover-chat-btn');
         const loverTools = document.getElementById('lover-tools');
@@ -1229,6 +1241,7 @@
         nightActionPassBtn.classList.add('hidden');
         wizardTools.classList.add('hidden');
         necromancerTools.classList.add('hidden');
+        carrierTools.classList.add('hidden');
         duyucuTools.classList.add('hidden');
         duyucuLoverChatBtn.classList.add('hidden');
         loverTools.classList.add('hidden');
@@ -1276,6 +1289,9 @@
             if (isLover && isHain && amIAlive && myRole !== 'Duyucu Hain' && myRole !== 'Kayıp Hain') loverHainChatBtn.classList.remove('hidden');
             if (myRole === 'Vigilante' && amIAlive) vigilantePassBtn.classList.remove('hidden');
             if ((myRole === 'Jester' || myRole === 'Müttefik') && amIAlive) nightActionPassBtn.classList.remove('hidden');
+        }
+        if (phase === 'DAY' && myRole === 'Taşıyıcı (Hastalıklı)' && carrierRoleOptions && carrierRoleOptions.length > 0) {
+            setupCarrierTools(carrierRoleOptions);
         }
 
         const grid = document.getElementById('player-grid');
@@ -1466,6 +1482,18 @@
         const targetId = document.getElementById('wizard-target-select').value;
         if (!powerRole || !targetId) return;
         socket.emit('wizardAction', { roomCode: currentRoomCode, powerRole, targetId });
+    }
+
+    function setupCarrierTools(roles) {
+        const tools = document.getElementById('carrier-tools');
+        const roleSelect = document.getElementById('carrier-role-select');
+        roleSelect.innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
+        tools.classList.toggle('hidden', roles.length === 0);
+    }
+
+    function chooseCarrierRole() {
+        const role = document.getElementById('carrier-role-select').value;
+        if (role) socket.emit('carrierRoleAction', { roomCode: currentRoomCode, role });
     }
 
     function setupNecromancerTools(sourceRoles, players) {
