@@ -685,10 +685,10 @@ io.on('connection', (socket) => {
         actor.role = stolenRole;
         actor.isHain = Boolean(target.isHain);
         if (stolenRole === 'Müttefik') {
+            actor.allyTargetId = target.allyTargetId;
+            actor.allyProtectUses = target.allyProtectUses;
+            actor.allyProtectDisabled = false;
             target.allyProtectDisabled = true;
-            actor.allyTargetId = null;
-            actor.allyProtectUses = 0;
-            actor.allyProtectDisabled = true;
         }
         actor.ammo = stolenRole === 'Vigilante' && actor.isHain ? 2 : (stolenRole === 'Vigilante' ? 2 : 0);
         actor.hasGun = false;
@@ -1512,7 +1512,7 @@ function calculateNightResult(roomCode) {
 
     Object.entries(actions).forEach(([actorId, act]) => {
         const actor = room.players.find(p => p.id === actorId);
-        if (!actor || (!actor.isAlive && actor.role !== 'Melek') || act.blockedByTrap) return;
+        if (!actor || (!actor.isAlive && actor.role !== 'Melek' && actor.role !== 'Müttefik') || act.blockedByTrap) return;
 
         if (actor.isLover && act.actionType === 'LOVER_PROTECT') {
             if (room.loverShieldUsed) return;
