@@ -44,17 +44,16 @@ const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', 'Jester', 'Hırsız', 'Mütte
 
 const roleNames = group => Object.values(group).flat();
 const TOWN_ROLES = ['Düz Köylü', ...roleNames(ROLE_CATEGORIES.town)];
-const ALL_TOWN_ROLE_POOL = [...new Set(TOWN_ROLES)];
+const ALL_TOWN_ROLE_POOL = [...new Set(TOWN_ROLES.filter(role => role !== 'Düz Köylü'))];
 const HAIN_ROLE_POOL = [...new Set([
     ...roleNames(ROLE_CATEGORIES.hain).filter(role => role !== HAIN_KOYLU_ROLE),
     'Düz Hain'
-])];
+].filter(role => role !== 'Düz Hain'))];
 const NEUTRAL_ROLE_POOL = [...new Set(roleNames(ROLE_CATEGORIES.neutral))];
 const ALL_RANDOM_ROLE_POOL = [...new Set([
     ...ALL_TOWN_ROLE_POOL,
     ...HAIN_ROLE_POOL,
-    ...NEUTRAL_ROLE_POOL,
-    ...['Düz Köylü']
+    ...NEUTRAL_ROLE_POOL
 ].filter(role => role !== HAIN_KOYLU_ROLE))];
 const CONFIGURABLE_ROLE_NAMES = [
     ...roleNames(ROLE_CATEGORIES.town),
