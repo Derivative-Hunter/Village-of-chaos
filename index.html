@@ -1020,6 +1020,7 @@
     let selectedTargetName = '';
     let isHost = false;
     let latestPlayers = [];
+    let knownShadowRoles = {};
     let previousGameRoles = [];
     let suikastTargetId = null;
     let duyucuChatMode = 'hainler';
@@ -1172,6 +1173,7 @@
     });
 
     socket.on('returnedToLobby', ({ settings, hostId, previousGameRoles: roles }) => {
+        knownShadowRoles = {};
         document.getElementById('game-over-modal').classList.add('hidden');
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
@@ -1221,6 +1223,7 @@
     });
 
     socket.on('gameStarted', () => {
+        knownShadowRoles = {};
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.add('hidden');
         document.getElementById('game-screen').classList.remove('hidden');
@@ -1228,7 +1231,13 @@
     });
 
     socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions }) => {
-        latestPlayers = players;
+        players.forEach(player => {
+            if (myRole === 'Gölge Ajanı' && player.shadowRole) knownShadowRoles[player.id] = player.shadowRole;
+        });
+        latestPlayers = players.map(player => ({
+            ...player,
+            shadowRole: myRole === 'Gölge Ajanı' ? (knownShadowRoles[player.id] || null) : null
+        }));
         const phaseTitle = document.getElementById('phase-title');
         const phaseSubtext = document.getElementById('phase-subtext');
         const passBtn = document.getElementById('pass-vote-btn');
