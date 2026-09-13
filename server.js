@@ -120,6 +120,14 @@ function buildWizardMorningMessage(controlledRole, targetUsername) {
     return `🪄 ${controlledRole} gücünü ${targetUsername} kişisine karşı kullandın.`;
 }
 
+function isWizardControlAction(action) {
+    return Boolean(action && action.actionType === 'WIZARD');
+}
+
+function canBePutToSleep(target, action) {
+    return !(target && target.role === 'Büyücü Hain' && isWizardControlAction(action));
+}
+
 function emitRoleActionMessage(actor, text) {
     if (!actor || !actor.id || !text) return;
     io.to(actor.id).emit('chatMessage', { sender: `[${(actor.role || 'ROL').toUpperCase()}]`, text, type: 'green' });
@@ -1071,7 +1079,7 @@ io.on('connection', (socket) => {
             return socket.emit('errorMsg', 'Aşık olarak aynı gece iki farklı gece eylemi kullanamazsın!');
         }
 
-        room.nightActions[socket.id] = { role: actor.role, actionType: 'WIZARD', targetId, controlledId: controlled.id, controlledRole: controlled.role };
+        room.nightActions[socket.id] = { role: actor.role, actionType: 'WIZARD', targetId, controlledId: controlled.id, controlledRole: controlled.role, noVisit: true };
         socket.emit('actionConfirmed', { targetId, targetName: target.username });
     });
 
@@ -1475,6 +1483,11 @@ function calculateNightResult(roomCode) {
 
         const target = room.players.find(p => p.id === act.targetId);
         if (!target) return;
+
+        if (!canBePutToSleep(target, actions[target.id])) {
+            io.to(actor.id).emit('chatMessage', { sender: '[UYUTUCU]', text: '💤 Eylemin işlemedi.', type: 'green' });
+            return;
+        }
 
         if (target.role === 'Seri Katil' || target.role === LOST_HAIN_ROLE || target.role === 'Kundakçı') {
             io.to(actor.id).emit('chatMessage', { sender: '[UYUTUCU]', text: '💤 Eylemin işlemedi.', type: 'green' });
@@ -2176,6 +2189,8 @@ if (require.main === module) {
 
 module.exports = {
     buildWizardMorningMessage,
+    isWizardControlAction,
+    canBePutToSleep,
     canUseAdditionalNightAction,
     canUseAllyProtection,
     getAdditionalWinners,
