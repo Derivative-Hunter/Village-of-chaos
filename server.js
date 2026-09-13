@@ -136,6 +136,12 @@ function canWizardTarget(actor, controlled, target) {
     return Boolean(target && target.id !== controlled.id);
 }
 
+function getVisibleShadowRole(viewer, target) {
+    return viewer && viewer.role === 'Gölge Ajanı' && viewer.shadowRole && viewer.shadowRole.targetId === target.id
+        ? viewer.shadowRole.role
+        : null;
+}
+
 function updateNoDeathStreak(room) {
     const aliveCount = room.players.filter(player => player.isAlive).length;
     room.noDeathDays = aliveCount === room.dayStartAliveCount ? (room.noDeathDays || 0) + 1 : 0;
@@ -428,7 +434,7 @@ function sendGameState(roomCode) {
                 isRevealed: p.isRevealed,
                 isDoused: player.role === 'Kundakçı' && p.isDoused,
                 isSick: player.role === CARRIER_ROLE && p.isSick,
-                    shadowRole: player.shadowRole && player.shadowRole.targetId === p.id ? player.shadowRole.role : null
+                    shadowRole: getVisibleShadowRole(player, p)
             };
         });
 
@@ -2220,6 +2226,7 @@ module.exports = {
     isWizardControlAction,
     canBePutToSleep,
     canWizardTarget,
+    getVisibleShadowRole,
     updateNoDeathStreak,
     canUseAdditionalNightAction,
     canUseAllyProtection,
