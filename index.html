@@ -796,6 +796,7 @@
     <div class="player-scroll-list">
         <ul id="player-list" style="list-style: none; padding: 0; margin: 0;"></ul>
     </div>
+    <button id="previous-game-roles-btn" class="btn-gold hidden" onclick="openPreviousGameRoles()">📜 Önceki Oyunun Rollerini Gör</button>
     <div id="bot-setting" class="settings-box bot-setting">
         <label for="cfg-bots">🤖 Bot Sayısı</label>
         <div class="bot-counter">
@@ -1003,6 +1004,14 @@
     </div>
 </div>
 
+<div id="previous-game-roles-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+        <h2 style="color: #f59e0b; margin-top:0;">📜 Önceki Oyunun Rolleri</h2>
+        <ul id="previous-game-roles-list" class="role-list" style="list-style:none; padding:0; text-align:left;"></ul>
+        <button class="btn-gold" style="margin-top: 15px;" onclick="closePreviousGameRoles()">Kapat</button>
+    </div>
+</div>
+
 <script>
     const socket = io();
     let currentRoomCode = '';
@@ -1011,6 +1020,7 @@
     let selectedTargetName = '';
     let isHost = false;
     let latestPlayers = [];
+    let previousGameRoles = [];
     let suikastTargetId = null;
     let duyucuChatMode = 'hainler';
     let loverChatMode = false;
@@ -1150,17 +1160,18 @@
         loadNotes();
     });
 
-    socket.on('joinedRoom', ({ roomCode, settings }) => {
+    socket.on('joinedRoom', ({ roomCode, settings, previousGameRoles: roles }) => {
         currentRoomCode = roomCode;
         isHost = false;
         showLobby(roomCode);
         document.getElementById('host-tag').innerText = '(Kurucu Ayarlıyor)';
         setInputsDisabled(true);
         applySettingsToInputs(settings);
+        renderPreviousGameRoles(roles || []);
         loadNotes();
     });
 
-    socket.on('returnedToLobby', ({ settings, hostId }) => {
+    socket.on('returnedToLobby', ({ settings, hostId, previousGameRoles: roles }) => {
         document.getElementById('game-over-modal').classList.add('hidden');
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
@@ -1181,6 +1192,7 @@
             setInputsDisabled(true);
         }
         applySettingsToInputs(settings);
+        renderPreviousGameRoles(roles || []);
     });
 
     socket.on('settingsUpdated', (settings) => applySettingsToInputs(settings));
@@ -1477,7 +1489,7 @@
         powerSelect.innerHTML = wizardTargets.length
             ? wizardTargets.map(player => `<option value="${player.id}">${player.username}</option>`).join('')
             : '<option value="">Ele geçirilecek kişi yok</option>';
-        targetSelect.innerHTML = players.filter(p => p.isAlive && p.id !== socket.id)
+        targetSelect.innerHTML = players.filter(p => p.isAlive)
             .map(p => `<option value="${p.id}">${p.username}</option>`).join('');
     }
 
@@ -1725,6 +1737,28 @@
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('display-code').innerText = code;
+    }
+
+    function renderPreviousGameRoles(roles) {
+        previousGameRoles = Array.isArray(roles) ? roles : [];
+        const button = document.getElementById('previous-game-roles-btn');
+        button.classList.toggle('hidden', previousGameRoles.length === 0);
+    }
+
+    function openPreviousGameRoles() {
+        const list = document.getElementById('previous-game-roles-list');
+        list.innerHTML = '';
+        previousGameRoles.forEach(({ username, role }) => {
+            const item = document.createElement('li');
+            item.className = 'role-list-item';
+            item.textContent = `${username}: ${role || 'Bilinmeyen rol'}`;
+            list.appendChild(item);
+        });
+        document.getElementById('previous-game-roles-modal').classList.remove('hidden');
+    }
+
+    function closePreviousGameRoles() {
+        document.getElementById('previous-game-roles-modal').classList.add('hidden');
     }
 
     socket.on('errorMsg', (msg) => alert(msg));

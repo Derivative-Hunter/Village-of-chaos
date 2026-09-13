@@ -115,6 +115,10 @@ function canRoleUseAttack(roleName, hasGun) {
 }
 const isHainKoyluPlayer = player => Boolean(player && player.isHain && !ALL_HAIN_ROLES.includes(player.role));
 const getDeadRoleLabel = player => isHainKoyluPlayer(player) ? `Hain ${player.role}` : player.role;
+const getPreviousGameRoles = room => room.players.map(player => ({
+    username: player.username,
+    role: getDeadRoleLabel(player)
+}));
 
 function buildWizardMorningMessage(controlledRole, targetUsername) {
     return `🪄 ${controlledRole} gücünü ${targetUsername} kişisine karşı kullandın.`;
@@ -126,6 +130,15 @@ function isWizardControlAction(action) {
 
 function canBePutToSleep(target, action) {
     return !(target && target.role === 'Büyücü Hain' && isWizardControlAction(action));
+}
+
+function canWizardTarget(actor, controlled, target) {
+    return Boolean(target && target.id !== controlled.id);
+}
+
+function updateNoDeathStreak(room) {
+    const aliveCount = room.players.filter(player => player.isAlive).length;
+    room.noDeathDays = aliveCount === room.dayStartAliveCount ? (room.noDeathDays || 0) + 1 : 0;
 }
 
 function emitRoleActionMessage(actor, text) {
@@ -476,6 +489,8 @@ io.on('connection', (socket) => {
             hainKoyluCountdown: null,
             hainKoyluCountdownPending: false,
             hunterStand: null,
+            noDeathDays: 0,
+            dayStartAliveCount: 0,
             loverShieldUsed: false,
             settings: {
                 randomTownCount: 0,
@@ -574,7 +589,7 @@ io.on('connection', (socket) => {
 
         room.players.push(player);
         socket.join(code);
-        socket.emit('joinedRoom', { roomCode: code, player, settings: room.settings });
+        socket.emit('joinedRoom', { roomCode: code, player, settings: room.settings, previousGameRoles: room.previousGameRoles || [] });
         io.to(code).emit('updatePlayerList', room.players);
     });
 
@@ -601,6 +616,8 @@ io.on('connection', (socket) => {
         room.judgmentVotes = {};
         room.nightActions = {};
         room.mutedPlayerId = null;
+        room.noDeathDays = 0;
+        room.dayStartAliveCount = 0;
         room.hainKoyluCountdown = null;
         room.hainKoyluCountdownPending = false;
         room.loverPair = [];
@@ -637,7 +654,7 @@ io.on('connection', (socket) => {
         });
         room.hunterStand = null;
 
-        io.to(code).emit('returnedToLobby', { settings: room.settings, hostId: room.hostId });
+        io.to(code).emit('returnedToLobby', { settings: room.settings, hostId: room.hostId, previousGameRoles: room.previousGameRoles || [] });
         io.to(code).emit('updatePlayerList', room.players);
     });
 
@@ -1069,10 +1086,10 @@ io.on('connection', (socket) => {
         if (!powerRole || !targetId) return socket.emit('errorMsg', 'Önce kontrol edilecek kişiyi ve hedefi seçin!');
         const controlled = room.players.find(p => p.id === powerRole && p.isAlive);
         const target = room.players.find(p => p.id === targetId && p.isAlive);
-        if (!controlled || isHainPlayer(controlled) || controlled.id === actor.id || controlled.role === 'Kundakçı') {
-            return socket.emit('errorMsg', controlled && controlled.role === 'Kundakçı' ? '🛢️ Kundakçı bu gece evinden çıkmadı.' : 'Bu kişi kontrol edilemez!');
+        if (!controlled || isHainPlayer(controlled) || controlled.id === actor.id) {
+            return socket.emit('errorMsg', 'Bu kişi kontrol edilemez!');
         }
-        if (!target || target.id === actor.id || target.id === controlled.id || isHainPlayer(target)) return socket.emit('errorMsg', 'Hain arkadaşların, kendin veya kontrol ettiğin kişi hedef olamaz!');
+        if (!canWizardTarget(actor, controlled, target)) return socket.emit('errorMsg', 'Kendin veya kontrol ettiğin kişi hedef olamaz!');
 
         const existingNightAction = room.nightActions && room.nightActions[socket.id];
         if (!canUseAdditionalNightAction(actor, 'WIZARD', existingNightAction)) {
@@ -1151,6 +1168,7 @@ function startPhase(roomCode, phase, seconds) {
     if (phase === 'DAY' || phase === 'VOTE') prepareCarrierTransformation(room);
 
     if (phase === 'DAY') {
+        room.dayStartAliveCount = room.players.filter(player => player.isAlive).length;
         room.players.forEach(player => {
             if (player.role === 'Suikastçi') player.hasAssassinated = false;
         });
@@ -1245,6 +1263,13 @@ function nextPhase(roomCode) {
 
     } else if (room.phase === 'NIGHT') {
         calculateNightResult(roomCode);
+        updateNoDeathStreak(room);
+        if (room.noDeathDays >= 4) {
+            clearInterval(room.timer);
+            sendGameState(roomCode);
+            emitGameOver(roomCode, { winner: 'BERABERE', msg: '🤝 Dört gün boyunca kimse ölmediği için oyun berabere sonuçlandı.' });
+            return;
+        }
         if (!room.hunterStand && checkWinCondition(roomCode)) return;
 
         room.dayNumber++;
@@ -1458,9 +1483,6 @@ function goToNight(roomCode) {
     const room = rooms[roomCode];
     room.nightActions = {};
     room.nightActionPasses = {};
-    room.players.forEach(player => {
-        player.shadowRole = null;
-    });
     addBotNightActions(room);
     room.defendantId = null;
     io.to(roomCode).emit('phaseChangeClearTarget');
@@ -1523,6 +1545,10 @@ function calculateNightResult(roomCode) {
         if (!controlled || !controlled.isAlive) return;
         const wizard = room.players.find(p => p.id === actorId);
         const controlledAction = actions[controlled.id];
+        if (controlled.role === 'Kundakçı') {
+            io.to(controlled.id).emit('systemAnnounce', '[SİSTEM] 🪄 Bu gece gücün ele geçirildi. Kontrol edildin ama Kundakçı gücün etkisiz kaldı.');
+            return;
+        }
         if (NON_VISITING_ROLES.includes(controlled.role) || !controlledAction || controlledAction.actionType === 'WIZARD') {
             if (wizard) io.to(wizard.id).emit('chatMessage', { sender: '[BÜYÜCÜ HAIN]', text: `🪄 ${controlled.role} gücünü ${controlled.username} kişisine karşı kullandın; bu rol bu gece evinden çıkamadığı için etkisi olmadı.`, type: 'green' });
             delete actions[controlled.id];
@@ -2036,6 +2062,7 @@ function propagateLoverDeaths(room, killedList = null) {
 
 function emitGameOver(roomCode, result) {
     const room = rooms[roomCode];
+    if (room) room.previousGameRoles = getPreviousGameRoles(room);
     const allyWon = room && room.players.some(player => player.role === 'Müttefik' && player.allyTargetId && room.players.some(target => target.id === player.allyTargetId && target.isAlive));
     io.to(roomCode).emit('gameOver', allyWon && !result.winner.includes('MÜTTEFİK')
         ? { winner: `${result.winner} VE MÜTTEFİK`, msg: `${result.msg} 🤝 Müttefik de kazandı!` }
@@ -2189,8 +2216,11 @@ if (require.main === module) {
 
 module.exports = {
     buildWizardMorningMessage,
+    getPreviousGameRoles,
     isWizardControlAction,
     canBePutToSleep,
+    canWizardTarget,
+    updateNoDeathStreak,
     canUseAdditionalNightAction,
     canUseAllyProtection,
     getAdditionalWinners,
