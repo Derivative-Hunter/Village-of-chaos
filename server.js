@@ -19,7 +19,7 @@ const ROLE_CATEGORIES = {
     town: {
         'Koruma Köylüleri': ['Doktor', 'Melek', 'Uyutucu', 'Tuzakçı Köylü'],
         'Silahlı Köylüler': ['Vigilante', 'Başkan', 'Düzenbaz Köylü', 'Avcı Köylü'],
-        'Araştırmacı Köylüler': ['Ayakçı', 'Gözcü', 'Medyum', 'Casus', 'Kahin Köylü', 'Astral']
+        'Araştırmacı Köylüler': ['Ayakçı', 'Gözcü', 'Medyum', 'Casus', 'Kahin Köylü', 'Astral', 'Dedektif']
     },
     hain: {
         'Silahlı Hainler': ['Gizleyici', 'Ninja Hain', 'Kayıp Hain'],
@@ -115,6 +115,33 @@ function canRoleUseAttack(roleName, hasGun) {
     if (roleName === 'Vigilante') return true;
     if (roleName === 'Seri Katil') return true;
     return Boolean(hasGun);
+}
+
+const DETECTIVE_CATEGORIES = {
+    weapon: 'Silah taşıyor mu?',
+    protector: 'Koruyucu ya da engelleyici mi?',
+    information: 'Bilgi rolü mü?',
+    any: 'Bu üç kategoriden birinde mi?'
+};
+const DETECTIVE_PROTECTOR_ROLES = ['Doktor', 'Tuzakçı Köylü', 'Düzenbaz Köylü', 'Uyutucu', 'Astral', 'Necromancer', 'Müttefik', 'Susturucu'];
+const DETECTIVE_INFORMATION_ROLES = ['Ayakçı', 'Gözcü', 'Kahin Köylü', 'Gölge Ajanı', 'Büyücü Hain'];
+
+function getDetectiveAnswer(target, category) {
+    if (!target || !Object.hasOwn(DETECTIVE_CATEGORIES, category)) return false;
+
+    const hasWeapon = target.role === 'Vigilante' || target.role === 'Kundakçı' ||
+        target.role === 'Seri Katil' || target.role === LOST_HAIN_ROLE ||
+        (isHainPlayer(target) && target.hasGun);
+    const isProtectorOrBlocker = DETECTIVE_PROTECTOR_ROLES.includes(target.role);
+    const isInformationRole = DETECTIVE_INFORMATION_ROLES.includes(target.role);
+
+    switch (category) {
+        case 'weapon': return hasWeapon;
+        case 'protector': return isProtectorOrBlocker;
+        case 'information': return isInformationRole;
+        case 'any': return hasWeapon || isProtectorOrBlocker || isInformationRole;
+        default: return false;
+    }
 }
 
 function buildMixerChatDeliveries(players, sender, text, alias) {
@@ -1047,7 +1074,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('nightAction', ({ roomCode, targetId, actionType }) => {
+    socket.on('nightAction', ({ roomCode, targetId, actionType, category }) => {
         const code = (roomCode || socket.roomCode || '').trim().toUpperCase();
         const room = rooms[code];
         if (!room || room.phase !== 'NIGHT') return;
@@ -1065,6 +1092,16 @@ io.on('connection', (socket) => {
                 delete room.nightActions[socket.id];
                 room.nightActionPasses[socket.id] = true;
                 return socket.emit('actionConfirmed', { targetId: null, targetName: 'Saldırı iptal edildi' });
+            }
+            if (actionType === 'DETECTIVE' && actor.role !== 'Dedektif') {
+                return socket.emit('errorMsg', 'Bu gece eylemini yalnızca Dedektif kullanabilir!');
+            }
+            if (actor.role === 'Dedektif') {
+                const target = room.players.find(player => player.id === targetId && player.isAlive && player.id !== actor.id);
+                if (actionType !== 'DETECTIVE' || !Object.hasOwn(DETECTIVE_CATEGORIES, category)) {
+                    return socket.emit('errorMsg', 'Önce araştırma kategorisini seçmelisin!');
+                }
+                if (!target) return socket.emit('errorMsg', 'Dedektif yalnızca başka bir yaşayan oyuncuyu sorgulayabilir!');
             }
             if (['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Avcı Köylü'].includes(actor.role)) return;
             if (actor.role === 'Hırsız') return socket.emit('errorMsg', 'Hırsız gece eylemi yapamaz!');
@@ -1139,7 +1176,7 @@ io.on('connection', (socket) => {
             if (!room.nightActions) room.nightActions = {};
             if (actor.role === 'Ninja Hain' && actionType === 'NINJA') actor.ninjaUsed = true;
             if (actor.role === 'Jester') actor.jesterShield--;
-            room.nightActions[socket.id] = { role: actor.role, targetId, actionType };
+            room.nightActions[socket.id] = { role: actor.role, targetId, actionType, category };
 
             const targetPlayer = room.players.find(p => p.id === targetId);
             const targetName = targetId === 'IGNITE' ? '🔥 HERKESİ YAK' : (targetPlayer ? targetPlayer.username : 'Bilinmeyen');
@@ -1708,6 +1745,7 @@ function calculateNightResult(roomCode) {
     let arsoIgnite = false, arsoDouseTarget = null, arsoActor = null;
     let shadowTarget = null, shadowActor = null;
     let kahinTarget = null, kahinActor = null;
+    let detectiveTarget = null, detectiveActor = null, detectiveCategory = null;
     let ninjaTarget = null, ninjaActor = null;
     const trapTargets = new Set();
     const trapActors = new Map();
@@ -1870,6 +1908,11 @@ function calculateNightResult(roomCode) {
             io.to(actor.id).emit('chatMessage', { sender: '[MÜTTEFİK]', text: `${target.username} adlı kişiyi korudun. Koruma hakkın: ${2 - actor.allyProtectUses}`, type: 'green' });
         }
         else if (actor.role === 'Gölge Ajanı' && !actor.hasGun) { shadowTarget = act.targetId; shadowActor = actor; }
+        else if (actor.role === 'Dedektif' && act.actionType === 'DETECTIVE') {
+            detectiveTarget = act.targetId;
+            detectiveActor = actor;
+            detectiveCategory = act.category;
+        }
         else if (actor.role === 'Kahin Köylü') { kahinTarget = act.targetId; kahinActor = actor; }
         else if (actor.role === 'Seri Katil') { skTarget = act.targetId; skActor = actor; killPerformerIds.add(actorId); }
         else if (actor.role === LOST_HAIN_ROLE) {
@@ -2158,6 +2201,16 @@ function calculateNightResult(roomCode) {
         io.to(kahinActor.id).emit('chatMessage', { sender: '[KAHİN KÖYLÜ RAPORU]', text: reportText, type: 'green' });
     }
 
+    if (detectiveActor && detectiveTarget && Object.hasOwn(DETECTIVE_CATEGORIES, detectiveCategory)) {
+        const target = room.players.find(player => player.id === detectiveTarget);
+        if (target) {
+            const answer = getDetectiveAnswer(target, detectiveCategory) ? 'EVET' : 'HAYIR';
+            const reportText = `🕵️ Dedektif Raporu: ${target.username} için "${DETECTIVE_CATEGORIES[detectiveCategory]}" sonucu: ${answer}.`;
+            emitRoleActionMessage(detectiveActor, reportText);
+            io.to(detectiveActor.id).emit('chatMessage', { sender: '[DEDEKTİF RAPORU]', text: reportText, type: 'green' });
+        }
+    }
+
     spreadSickness(room);
     prepareCarrierTransformation(room);
 }
@@ -2362,6 +2415,8 @@ module.exports = {
     buildRandomRolePool,
     pickRandomRoleSet,
     canRoleUseAttack,
+    DETECTIVE_CATEGORIES,
+    getDetectiveAnswer,
     buildMixerChatDeliveries,
     canAstralUseRole,
     getAstralSources,

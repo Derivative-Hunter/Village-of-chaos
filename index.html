@@ -76,6 +76,8 @@
         .role-category .setting-grid { gap: 7px 12px; }
         .night-role-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
         .night-role-tools select, .night-role-tools button { width: auto; min-width: 150px; margin: 0; }
+        .detective-role-note { flex: 1 1 100%; max-width: 640px; text-align: left; color: #cbd5e1; background: rgba(15, 22, 35, 0.9); border-left: 3px solid #38bdf8; border-radius: 6px; padding: 9px 12px; font-size: 12px; line-height: 1.45; }
+        .detective-role-note > strong { display: block; color: #7dd3fc; margin-bottom: 4px; }
 
         .player-scroll-list {
             max-height: 120px;
@@ -684,7 +686,7 @@
             <div class="role-category town">
                 <h5>🔎 Köy Takımı · Araştırmacı Köylüler</h5>
                 <div class="setting-grid">
-                    <div class="setting-item"><label>Rol sayısı (Ayakçı / Gözcü / Medyum / Casus / Kahin / Astral):</label><input type="number" id="cfg-arastirmaci-koylu" value="0" min="0" max="6" onchange="emitSettings()"></div>
+                    <div class="setting-item"><label>Rol sayısı (Ayakçı / Gözcü / Medyum / Casus / Kahin / Astral / Dedektif):</label><input type="number" id="cfg-arastirmaci-koylu" value="0" min="0" max="7" onchange="emitSettings()"></div>
                 </div>
             </div>
             <div class="role-category town">
@@ -876,6 +878,21 @@
             <select id="astral-target-select" aria-label="Astral gücünün hedefi"></select>
             <button class="btn-action-purple" onclick="useAstralPower()">✨ Astral Gücünü Kullan</button>
         </div>
+        <div id="detective-tools" class="night-role-tools hidden">
+            <select id="detective-category-select" aria-label="Dedektif araştırma kategorisi">
+                <option value="weapon">Silah taşıyor mu?</option>
+                <option value="protector">Koruyucu ya da engelleyici mi?</option>
+                <option value="information">Bilgi rolü mü?</option>
+                <option value="any">Bu üç kategoriden birinde mi?</option>
+            </select>
+            <div class="detective-role-note">
+                <strong>Dedektif Notu</strong>
+                <div><strong>Silah:</strong> Vigilante, silahlı hainler, Kundakçı, Seri Katil, Kayıp Hain</div>
+                <div><strong>Koruyucu/engelleyici:</strong> Doktor, Tuzakçı Köylü, Düzenbaz Köylü, Uyutucu, Astral, Necromancer, Müttefik, Susturucu</div>
+                <div><strong>Bilgi:</strong> Ayakçı, Gözcü, Kahin Köylü, Gölge Ajanı, Büyücü Hain</div>
+                <div><strong>Üçünden biri:</strong> Yukarıdaki listelerden en az birindeki roller</div>
+            </div>
+        </div>
         <div id="carrier-tools" class="night-role-tools hidden">
             <select id="carrier-role-select" aria-label="Dönüşülecek rol"></select>
             <button class="btn-action-pink" onclick="chooseCarrierRole()">🦠 Yeni Rolü Seç</button>
@@ -975,6 +992,7 @@
         <h3 style="color: #38bdf8; margin: 16px 0 10px;">🏘️ Köy Takımı</h3>
         <div class="role-list-item"><strong>🔍 Gözcü:</strong> Gece seçtiği oyuncunun evine kimlerin gittiğini öğrenir.</div>
         <div class="role-list-item"><strong>🔮 Kahin Köylü:</strong> Seçtiği eve gelenlerin kim olduğunu değil, rollerini öğrenir; kimse gelmediyse bunu bildirir.</div>
+        <div class="role-list-item"><strong>🕵️ Dedektif:</strong> Her gece başka bir yaşayan oyuncuyu dört kategoriden biriyle sorgular; sabah EVET/HAYIR yanıtı yalnızca kendisine gelir.</div>
         <div class="role-list-item"><strong>✨ Astral:</strong> Ölü Doktor, Uyutucu, Tuzakçı Köylü, Vigilante, Düzenbaz Köylü, Ayakçı, Gözcü veya Kahin Köylü'nün gücünü kullanır. Aynı rolü yeniden kullanmak için bir tam gün bekler; Vigilante mermileri sınırlıdır. Aynı gece Necromancer'ın kullandığı rolü kullanamaz.</div>
         <div class="role-list-item"><strong>👟 Ayakçı:</strong> Gece seçtiği oyuncunun başka bir oyuncuyu ziyaret edip etmediğini ve hedefini öğrenir.</div>
         <div class="role-list-item"><strong>🔮 Medyum:</strong> Ölü oyuncuların sohbet mesajlarını duyabilir.</div>
@@ -1267,6 +1285,7 @@
         const wizardTools = document.getElementById('wizard-tools');
         const necromancerTools = document.getElementById('necromancer-tools');
         const astralTools = document.getElementById('astral-tools');
+        const detectiveTools = document.getElementById('detective-tools');
         const carrierTools = document.getElementById('carrier-tools');
         const duyucuTools = document.getElementById('duyucu-tools');
         const duyucuLoverChatBtn = document.getElementById('duyucu-lover-chat-btn');
@@ -1295,6 +1314,7 @@
         wizardTools.classList.add('hidden');
         necromancerTools.classList.add('hidden');
         astralTools.classList.add('hidden');
+        detectiveTools.classList.add('hidden');
         carrierTools.classList.add('hidden');
         duyucuTools.classList.add('hidden');
         duyucuLoverChatBtn.classList.add('hidden');
@@ -1339,6 +1359,7 @@
                 setupAstralTools(astralTargets || [], players);
                 astralTools.classList.remove('hidden');
             }
+            if (myRole === 'Dedektif' && amIAlive) detectiveTools.classList.remove('hidden');
             if (myRole === 'Duyucu Hain' && amIAlive) {
                 duyucuTools.classList.remove('hidden');
                 if (isLover) duyucuLoverChatBtn.classList.remove('hidden');
@@ -1401,6 +1422,7 @@
                             else if (['Seri Katil', 'Gizleyici', 'Düz Hain', 'Karıştırıcı Hain', 'Duyucu Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain', 'Kayıp Hain'].includes(myRole) || (['Necromancer', 'Büyücü Hain'].includes(myRole) && hasGun)) btnLabel = '🎯 Saldır';
                             else if (myRole === 'Gölge Ajanı') btnLabel = hasGun ? '🎯 Saldır' : '🌑 Rolünü Öğren';
                             else if (myRole === 'Kahin Köylü') btnLabel = '🔮 İncele';
+                            else if (myRole === 'Dedektif') btnLabel = '🕵️ Sorgula';
                             else if (myRole === 'Tuzakçı Köylü') btnLabel = '🪤 Tuzak Kur';
                             else if (myRole === 'Susturucu') btnLabel = hasGun ? '🎯 Saldır' : '🤐 Sustur';
                             else if (myRole === 'Gözcü' || myRole === 'Ayakçı') btnLabel = '🔍 İzle';
@@ -1439,6 +1461,8 @@
                                 actionBtnHtml = '';
                             } else if (myRole === 'Karıştırıcı Hain' && !hasGun) {
                                 actionBtnHtml = '';
+                            } else if (myRole === 'Dedektif') {
+                                if (!isMe) actionBtnHtml = `<button class="card-btn btn-action-purple" onclick="handleNightAction('${p.id}', 'DETECTIVE')">${btnLabel}</button>`;
                             } else if (!isMe || myRole === 'Doktor' || myRole === 'Melek' || (myRole === 'Müttefik' && (dayNumber === 1 || allyTargetId === p.id) && (amIAlive || !isMe))) {
                                 if (myRole === 'Müttefik' && dayNumber > 1 && (allyTargetId !== p.id || allyProtectUses >= 2)) {
                                     actionBtnHtml = '';
@@ -1786,7 +1810,10 @@
         highlightSelectedCard(targetId);
         selectedTargetName = targetName;
         document.getElementById('phase-subtext').innerText = `Gece Eylemi Hedefi: ${targetName}`;
-        socket.emit('nightAction', { roomCode: currentRoomCode, targetId, actionType });
+        const category = actionType === 'DETECTIVE'
+            ? document.getElementById('detective-category-select').value
+            : undefined;
+        socket.emit('nightAction', { roomCode: currentRoomCode, targetId, actionType, category });
     }
 
     socket.on('actionConfirmed', ({ targetId, targetName }) => {
