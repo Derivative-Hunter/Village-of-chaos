@@ -19,7 +19,7 @@ const ROLE_CATEGORIES = {
     town: {
         'Koruma Köylüleri': ['Doktor', 'Melek', 'Uyutucu', 'Tuzakçı Köylü'],
         'Silahlı Köylüler': ['Vigilante', 'Başkan', 'Düzenbaz Köylü', 'Avcı Köylü'],
-        'Araştırmacı Köylüler': ['Ayakçı', 'Gözcü', 'Medyum', 'Casus', 'Kahin Köylü']
+        'Araştırmacı Köylüler': ['Ayakçı', 'Gözcü', 'Medyum', 'Casus', 'Kahin Köylü', 'Astral']
     },
     hain: {
         'Silahlı Hainler': ['Gizleyici', 'Ninja Hain', 'Kayıp Hain'],
@@ -35,6 +35,7 @@ const ROLE_CATEGORIES = {
 const MIXER_HAIN_ROLE = 'Karıştırıcı Hain';
 const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'];
 const NECROMANCER_SOURCE_ROLES = ['Doktor', 'Uyutucu', 'Tuzakçı Köylü', 'Vigilante', 'Düzenbaz Köylü', 'Ayakçı', 'Gözcü', 'Kahin Köylü', 'Ninja Hain', 'Kayıp Hain', 'Gölge Ajanı', 'Susturucu', 'Seri Katil'];
+const ASTRAL_SOURCE_ROLES = ['Doktor', 'Uyutucu', 'Tuzakçı Köylü', 'Vigilante', 'Düzenbaz Köylü', 'Ayakçı', 'Gözcü', 'Kahin Köylü'];
 const LOST_HAIN_ROLE = 'Kayıp Hain';
 const HAIN_KOYLU_ROLE = 'Hain Köylü';
 const CARRIER_ROLE = 'Taşıyıcı (Hastalıklı)';
@@ -126,6 +127,24 @@ function buildMixerChatDeliveries(players, sender, text, alias) {
         }
     }));
 }
+
+function canAstralUseRole(player, roleName, dayNumber) {
+    const lastUsedDay = player?.astralRoleLastUsedDay?.[roleName];
+    return lastUsedDay == null || dayNumber - lastUsedDay >= 2;
+}
+
+function getAstralSources(room, actor) {
+    return room.players
+        .filter(source => !source.isAlive && ASTRAL_SOURCE_ROLES.includes(source.role) &&
+            (source.role !== 'Vigilante' || source.ammo > 0) &&
+            canAstralUseRole(actor, source.role, room.dayNumber))
+        .map(source => ({ id: source.id, username: source.username, role: source.role, ammo: source.ammo }));
+}
+
+    function hasNecromancerRoleConflict(roleName, nightActions) {
+        return Object.values(nightActions || {}).some(action =>
+        action.actionType === 'NECROMANCER' && action.role === roleName);
+    }
 const isHainKoyluPlayer = player => Boolean(player && player.isHain && !ALL_HAIN_ROLES.includes(player.role));
 const getDeadRoleLabel = player => isHainKoyluPlayer(player) ? `Hain ${player.role}` : player.role;
 const getPreviousGameRoles = room => room.players.map(player => ({
@@ -209,7 +228,8 @@ function createBotPlayer(index) {
         allyTargetId: null,
             allyProtectUses: 0,
             isSick: false,
-            carrierRoleOptions: []
+                    carrierRoleOptions: [],
+                    astralRoleLastUsedDay: {}
     };
 }
 
@@ -463,6 +483,7 @@ function sendGameState(roomCode) {
                     .filter(p => !p.isAlive && NECROMANCER_SOURCE_ROLES.includes(p.role))
                     .map(p => ({ id: p.id, username: p.username, role: p.role, ammo: p.ammo, ninjaUsed: p.ninjaUsed }))
                 : [],
+            astralTargets: player.role === 'Astral' ? getAstralSources(room, player) : [],
             phase: room.phase,
             timeLeft: room.timeLeft,
             dayNumber: room.dayNumber,
@@ -604,7 +625,8 @@ io.on('connection', (socket) => {
             allyTargetId: null,
                 allyProtectUses: 0,
                 isSick: false,
-                carrierRoleOptions: []
+                carrierRoleOptions: [],
+                astralRoleLastUsedDay: {}
         };
 
         room.players.push(player);
@@ -672,6 +694,7 @@ io.on('connection', (socket) => {
             p.carrierRoleOptions = [];
             p.ninjaUsed = false;
             p.mixerTargetId = null;
+            p.astralRoleLastUsedDay = {};
         });
         room.hunterStand = null;
 
@@ -723,6 +746,7 @@ io.on('connection', (socket) => {
             player.isSick = player.role === CARRIER_ROLE;
             player.carrierRoleOptions = [];
             player.mixerTargetId = null;
+            player.astralRoleLastUsedDay = {};
         });
 
         assignLovers(room, cfg.asikCount);
@@ -1158,10 +1182,8 @@ io.on('connection', (socket) => {
         if (!source || source.isAlive || !NECROMANCER_SOURCE_ROLES.includes(source.role)) {
             return socket.emit('errorMsg', 'Bu ölü rol Necromancer tarafından kullanılamaz!');
         }
+
         if (!target) return socket.emit('errorMsg', 'Yalnızca yaşayan bir hedef seçebilirsin!');
-        if (source.role === 'Vigilante' && source.ammo <= 0) {
-            return socket.emit('errorMsg', 'Ölü Vigilante artık mermi taşımaz!');
-        }
         if (source.role === 'Ninja Hain' && source.ninjaUsed) {
             return socket.emit('errorMsg', 'Ölü Ninja Hain yeteneğini zaten kullandı!');
         }
@@ -1169,6 +1191,23 @@ io.on('connection', (socket) => {
         const existingNightAction = room.nightActions && room.nightActions[socket.id];
         if (!canUseAdditionalNightAction(actor, 'NECROMANCER', existingNightAction)) {
             return socket.emit('errorMsg', 'Aşık olarak aynı gece iki farklı gece eylemi kullanamazsın!');
+        }
+
+        Object.entries(room.nightActions || {}).forEach(([astralId, astralAction]) => {
+            if (astralAction.actionType !== 'ASTRAL' || astralAction.role !== source.role) return;
+            const astral = room.players.find(player => player.id === astralId);
+            const astralSource = room.players.find(player => player.id === astralAction.controlledSourceId);
+            if (astralSource && astralAction.role === 'Vigilante') astralSource.ammo++;
+            if (astral) {
+                if (astralAction.previousAstralRoleUseDay == null) delete astral.astralRoleLastUsedDay[source.role];
+                else astral.astralRoleLastUsedDay[source.role] = astralAction.previousAstralRoleUseDay;
+                io.to(astral.id).emit('errorMsg', 'Bu gece aynı ölü rolü Necromancer kullandığı için Astral eylemin iptal edildi.');
+            }
+            delete room.nightActions[astralId];
+        });
+
+        if (source.role === 'Vigilante' && source.ammo <= 0) {
+            return socket.emit('errorMsg', 'Ölü Vigilante artık mermi taşımıyor!');
         }
 
         if (source.role === 'Vigilante') source.ammo--;
@@ -1182,6 +1221,52 @@ io.on('connection', (socket) => {
             controlledSourceId: source.id
         };
         socket.emit('actionConfirmed', { targetId, targetName: target.username });
+        sendGameState(code);
+    });
+
+    socket.on('astralAction', ({ roomCode, sourceId, targetId }) => {
+        const code = (roomCode || socket.roomCode || '').trim().toUpperCase();
+        const room = rooms[code];
+        const actor = room && room.players.find(player => player.id === socket.id);
+        if (!room || room.phase !== 'NIGHT' || !actor || !actor.isAlive || actor.role !== 'Astral') return;
+
+        const source = room.players.find(player => player.id === sourceId);
+        const target = room.players.find(player => player.id === targetId && player.isAlive);
+        if (!source || source.isAlive || !ASTRAL_SOURCE_ROLES.includes(source.role)) {
+            return socket.emit('errorMsg', 'Astral bu ölü rolü kullanamaz!');
+        }
+        if (!target) return socket.emit('errorMsg', 'Yalnızca yaşayan bir hedef seçebilirsin!');
+        if (!canAstralUseRole(actor, source.role, room.dayNumber)) {
+            return socket.emit('errorMsg', 'Astral aynı rolü kullanmadan önce bir gün beklemelisin!');
+        }
+        if (source.role === 'Vigilante' && source.ammo <= 0) {
+            return socket.emit('errorMsg', 'Ölü Vigilante artık mermi taşımıyor!');
+        }
+        if (hasNecromancerRoleConflict(source.role, room.nightActions)) {
+            return socket.emit('errorMsg', 'Bu gece aynı ölü rolü Necromancer kullandığı için Astral bu rolü kullanamaz!');
+        }
+
+        const existingNightAction = room.nightActions && room.nightActions[socket.id];
+        if (!canUseAdditionalNightAction(actor, 'ASTRAL', existingNightAction)) {
+            return socket.emit('errorMsg', 'Aşık olarak aynı gece iki farklı gece eylemi kullanamazsın!');
+        }
+
+        if (!room.nightActions) room.nightActions = {};
+        if (!actor.astralRoleLastUsedDay) actor.astralRoleLastUsedDay = {};
+        const previousAstralRoleUseDay = actor.astralRoleLastUsedDay[source.role];
+        actor.astralRoleLastUsedDay[source.role] = room.dayNumber;
+        if (source.role === 'Vigilante') source.ammo--;
+        room.nightActions[socket.id] = {
+            role: source.role,
+            actionType: 'ASTRAL',
+            targetId,
+            controlledBy: socket.id,
+            controlledRole: source.role,
+            controlledSourceId: source.id,
+            previousAstralRoleUseDay
+        };
+        socket.emit('actionConfirmed', { targetId, targetName: target.username });
+        sendGameState(code);
     });
 
     socket.on('disconnect', () => {
@@ -1706,7 +1791,7 @@ function calculateNightResult(roomCode) {
             return;
         }
 
-        if (act.actionType === 'NECROMANCER') {
+        if (act.actionType === 'NECROMANCER' || act.actionType === 'ASTRAL') {
             if (act.role === 'Düzenbaz Köylü') {
                 tricksterTarget = act.targetId;
                 tricksterActor = actor;
@@ -2278,6 +2363,9 @@ module.exports = {
     pickRandomRoleSet,
     canRoleUseAttack,
     buildMixerChatDeliveries,
+    canAstralUseRole,
+    getAstralSources,
+    hasNecromancerRoleConflict,
     assignGuns,
     getUnusedRoleOptions,
     spreadSickness

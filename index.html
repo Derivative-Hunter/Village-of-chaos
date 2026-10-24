@@ -684,7 +684,7 @@
             <div class="role-category town">
                 <h5>🔎 Köy Takımı · Araştırmacı Köylüler</h5>
                 <div class="setting-grid">
-                    <div class="setting-item"><label>Rol sayısı (Ayakçı / Gözcü / Medyum / Casus / Kahin):</label><input type="number" id="cfg-arastirmaci-koylu" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                    <div class="setting-item"><label>Rol sayısı (Ayakçı / Gözcü / Medyum / Casus / Kahin / Astral):</label><input type="number" id="cfg-arastirmaci-koylu" value="0" min="0" max="6" onchange="emitSettings()"></div>
                 </div>
             </div>
             <div class="role-category town">
@@ -767,6 +767,7 @@
                 <div class="setting-item"><label>Medyum</label><input type="number" id="cfg-role-medyum" data-role="Medyum" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Casus</label><input type="number" id="cfg-role-casus" data-role="Casus" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Kahin Köylü</label><input type="number" id="cfg-role-kahin" data-role="Kahin Köylü" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Astral</label><input type="number" id="cfg-role-astral" data-role="Astral" value="0" min="0" max="1" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Tuzakçı Köylü</label><input type="number" id="cfg-role-tuzakci" data-role="Tuzakçı Köylü" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Gizleyici</label><input type="number" id="cfg-role-gizleyici" data-role="Gizleyici" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Düz Hain</label><input type="number" id="cfg-role-duz-hain" data-role="Düz Hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
@@ -870,6 +871,11 @@
             <select id="necromancer-target-select" aria-label="Gücün yönlendirileceği hedef"></select>
             <button class="btn-action-pink" onclick="useNecromancerPower()">💀 Ölü Rolü Kullan</button>
         </div>
+        <div id="astral-tools" class="night-role-tools hidden">
+            <select id="astral-source-select" aria-label="Astral için ölü rol seç"></select>
+            <select id="astral-target-select" aria-label="Astral gücünün hedefi"></select>
+            <button class="btn-action-purple" onclick="useAstralPower()">✨ Astral Gücünü Kullan</button>
+        </div>
         <div id="carrier-tools" class="night-role-tools hidden">
             <select id="carrier-role-select" aria-label="Dönüşülecek rol"></select>
             <button class="btn-action-pink" onclick="chooseCarrierRole()">🦠 Yeni Rolü Seç</button>
@@ -931,6 +937,7 @@
             <option value="Casus">Casus</option>
             <option value="Medyum">Medyum</option>
             <option value="Kahin Köylü">Kahin Köylü</option>
+            <option value="Astral">Astral</option>
             <option value="Vigilante">Vigilante</option>
             <option value="Uyutucu">Uyutucu</option>
             <option value="Başkan">Başkan</option>
@@ -968,6 +975,7 @@
         <h3 style="color: #38bdf8; margin: 16px 0 10px;">🏘️ Köy Takımı</h3>
         <div class="role-list-item"><strong>🔍 Gözcü:</strong> Gece seçtiği oyuncunun evine kimlerin gittiğini öğrenir.</div>
         <div class="role-list-item"><strong>🔮 Kahin Köylü:</strong> Seçtiği eve gelenlerin kim olduğunu değil, rollerini öğrenir; kimse gelmediyse bunu bildirir.</div>
+        <div class="role-list-item"><strong>✨ Astral:</strong> Ölü Doktor, Uyutucu, Tuzakçı Köylü, Vigilante, Düzenbaz Köylü, Ayakçı, Gözcü veya Kahin Köylü'nün gücünü kullanır. Aynı rolü yeniden kullanmak için bir tam gün bekler; Vigilante mermileri sınırlıdır. Aynı gece Necromancer'ın kullandığı rolü kullanamaz.</div>
         <div class="role-list-item"><strong>👟 Ayakçı:</strong> Gece seçtiği oyuncunun başka bir oyuncuyu ziyaret edip etmediğini ve hedefini öğrenir.</div>
         <div class="role-list-item"><strong>🔮 Medyum:</strong> Ölü oyuncuların sohbet mesajlarını duyabilir.</div>
         <div class="role-list-item"><strong>🕵️ Casus:</strong> Gündüz fısıltılarını gizlice görür.</div>
@@ -1241,7 +1249,7 @@
         loadNotes();
     });
 
-    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions, mixerTargetId }) => {
+    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, astralTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions, mixerTargetId }) => {
         players.forEach(player => {
             if (myRole === 'Gölge Ajanı' && player.shadowRole) knownShadowRoles[player.id] = player.shadowRole;
         });
@@ -1258,6 +1266,7 @@
         const nightActionPassBtn = document.getElementById('night-action-pass-btn');
         const wizardTools = document.getElementById('wizard-tools');
         const necromancerTools = document.getElementById('necromancer-tools');
+        const astralTools = document.getElementById('astral-tools');
         const carrierTools = document.getElementById('carrier-tools');
         const duyucuTools = document.getElementById('duyucu-tools');
         const duyucuLoverChatBtn = document.getElementById('duyucu-lover-chat-btn');
@@ -1285,6 +1294,7 @@
         nightActionPassBtn.classList.add('hidden');
         wizardTools.classList.add('hidden');
         necromancerTools.classList.add('hidden');
+        astralTools.classList.add('hidden');
         carrierTools.classList.add('hidden');
         duyucuTools.classList.add('hidden');
         duyucuLoverChatBtn.classList.add('hidden');
@@ -1324,6 +1334,10 @@
             if (myRole === 'Necromancer' && amIAlive && !hasGun) {
                 setupNecromancerTools(necromancerTargets, players);
                 necromancerTools.classList.remove('hidden');
+            }
+            if (myRole === 'Astral' && amIAlive) {
+                setupAstralTools(astralTargets || [], players);
+                astralTools.classList.remove('hidden');
             }
             if (myRole === 'Duyucu Hain' && amIAlive) {
                 duyucuTools.classList.remove('hidden');
@@ -1430,7 +1444,7 @@
                                     actionBtnHtml = '';
                                 } else if (myRole === 'Müttefik' && !amIAlive && p.id === socket.id) {
                                     actionBtnHtml = '';
-                                } else if (canUseAttack || !['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Düz Hain', 'Karıştırıcı Hain'].includes(myRole)) {
+                                } else if (canUseAttack || !['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Düz Hain', 'Karıştırıcı Hain', 'Astral'].includes(myRole)) {
                                     const allyActionType = myRole === 'Müttefik' ? ', \'ALLY_PROTECT\'' : '';
                                     actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}'${allyActionType})">${btnLabel}</button>`;
                                 }
@@ -1564,6 +1578,23 @@
         const targetId = document.getElementById('necromancer-target-select').value;
         if (!sourceId || !targetId) return;
         socket.emit('necromancerAction', { roomCode: currentRoomCode, sourceId, targetId });
+    }
+
+    function setupAstralTools(sourceRoles, players) {
+        const sourceSelect = document.getElementById('astral-source-select');
+        const targetSelect = document.getElementById('astral-target-select');
+        sourceSelect.innerHTML = sourceRoles.length
+            ? sourceRoles.map(source => `<option value="${source.id}">${source.role} (${source.username})${source.role === 'Vigilante' ? ` · ${source.ammo} mermi` : ''}</option>`).join('')
+            : '<option value="">Kullanılabilir ölü rol yok</option>';
+        targetSelect.innerHTML = players.filter(player => player.isAlive)
+            .map(player => `<option value="${player.id}">${player.username}</option>`).join('');
+    }
+
+    function useAstralPower() {
+        const sourceId = document.getElementById('astral-source-select').value;
+        const targetId = document.getElementById('astral-target-select').value;
+        if (!sourceId || !targetId) return;
+        socket.emit('astralAction', { roomCode: currentRoomCode, sourceId, targetId });
     }
 
     function setDuyucuChatMode(mode) {
