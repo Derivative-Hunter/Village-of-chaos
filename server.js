@@ -117,15 +117,13 @@ function canRoleUseAttack(roleName, hasGun) {
 }
 
 function buildMixerChatDeliveries(players, sender, text, alias) {
-    const livingHainIds = new Set(players
-        .filter(player => player.isAlive && isHainPlayer(player) && player.role !== LOST_HAIN_ROLE)
-        .map(player => player.id));
-
     return players.map(player => ({
         playerId: player.id,
-        message: livingHainIds.has(player.id)
-            ? { sender: alias, text, type: 'mixer' }
-            : { sender: sender.username, text, type: 'general' }
+        message: {
+            sender: alias,
+            text,
+            type: isHainPlayer(player) ? 'mixer' : 'general'
+        }
     }));
 }
 const isHainKoyluPlayer = player => Boolean(player && player.isHain && !ALL_HAIN_ROLES.includes(player.role));
