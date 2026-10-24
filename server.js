@@ -23,7 +23,7 @@ const ROLE_CATEGORIES = {
     },
     hain: {
         'Silahlı Hainler': ['Gizleyici', 'Ninja Hain', 'Kayıp Hain'],
-        'Destekçi Hainler': ['Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain'],
+        'Destekçi Hainler': ['Suikastçi', 'Karıştırıcı Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain'],
         'Hain Köylü': ['Hain Köylü']
     },
     neutral: {
@@ -32,7 +32,8 @@ const ROLE_CATEGORIES = {
     }
 };
 
-const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'];
+const MIXER_HAIN_ROLE = 'Karıştırıcı Hain';
+const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'];
 const NECROMANCER_SOURCE_ROLES = ['Doktor', 'Uyutucu', 'Tuzakçı Köylü', 'Vigilante', 'Düzenbaz Köylü', 'Ayakçı', 'Gözcü', 'Kahin Köylü', 'Ninja Hain', 'Kayıp Hain', 'Gölge Ajanı', 'Susturucu', 'Seri Katil'];
 const LOST_HAIN_ROLE = 'Kayıp Hain';
 const HAIN_KOYLU_ROLE = 'Hain Köylü';
@@ -89,6 +90,7 @@ function canRoleUseAttack(roleName, hasGun) {
     const attackRoles = new Set([
         'Gizleyici',
         'Düz Hain',
+        MIXER_HAIN_ROLE,
         'Suikastçi',
         'Gölge Ajanı',
         'Susturucu',
@@ -102,7 +104,7 @@ function canRoleUseAttack(roleName, hasGun) {
     ]);
 
     if (!attackRoles.has(roleName)) return false;
-    if (roleName === 'Duyucu Hain' || roleName === 'Gölge Ajanı' || roleName === 'Susturucu' || roleName === 'Necromancer' || roleName === 'Büyücü Hain') {
+    if (roleName === 'Duyucu Hain' || roleName === 'Gölge Ajanı' || roleName === 'Susturucu' || roleName === 'Necromancer' || roleName === 'Büyücü Hain' || roleName === MIXER_HAIN_ROLE) {
         return Boolean(hasGun);
     }
     if (roleName === 'Gizleyici' || roleName === 'Düz Hain' || roleName === 'Suikastçi' || roleName === 'Ninja Hain' || roleName === 'Kayıp Hain') {
@@ -112,6 +114,19 @@ function canRoleUseAttack(roleName, hasGun) {
     if (roleName === 'Vigilante') return true;
     if (roleName === 'Seri Katil') return true;
     return Boolean(hasGun);
+}
+
+function buildMixerChatDeliveries(players, sender, text, alias) {
+    const livingHainIds = new Set(players
+        .filter(player => player.isAlive && isHainPlayer(player) && player.role !== LOST_HAIN_ROLE)
+        .map(player => player.id));
+
+    return players.map(player => ({
+        playerId: player.id,
+        message: livingHainIds.has(player.id)
+            ? { sender: alias, text, type: 'mixer' }
+            : { sender: sender.username, text, type: 'general' }
+    }));
 }
 const isHainKoyluPlayer = player => Boolean(player && player.isHain && !ALL_HAIN_ROLES.includes(player.role));
 const getDeadRoleLabel = player => isHainKoyluPlayer(player) ? `Hain ${player.role}` : player.role;
@@ -338,7 +353,7 @@ function assignGuns(room) {
     const hains = room.players.filter(p => p.isAlive && ALL_HAIN_ROLES.includes(p.role) && p.role !== LOST_HAIN_ROLE && !isHainKoyluPlayer(p));
     hains.forEach(h => h.hasGun = false);
 
-    const priority = ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Duyucu Hain', 'Ninja Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain'];
+    const priority = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Duyucu Hain', 'Ninja Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain'];
     for (let roleName of priority) {
         const owners = hains.filter(h => h.role === roleName);
         if (owners.length === 0) continue;
@@ -469,7 +484,8 @@ function sendGameState(roomCode) {
             allyProtectUses: player.role === 'Müttefik' ? player.allyProtectUses : 0,
             allyProtectDisabled: player.role === 'Müttefik' && player.allyProtectDisabled,
             isSick: player.isSick,
-            carrierRoleOptions: player.role === CARRIER_ROLE ? player.carrierRoleOptions : []
+            carrierRoleOptions: player.role === CARRIER_ROLE ? player.carrierRoleOptions : [],
+            mixerTargetId: player.role === MIXER_HAIN_ROLE ? player.mixerTargetId : null
         });
     });
 }
@@ -657,6 +673,7 @@ io.on('connection', (socket) => {
             p.isSick = false;
             p.carrierRoleOptions = [];
             p.ninjaUsed = false;
+            p.mixerTargetId = null;
         });
         room.hunterStand = null;
 
@@ -707,6 +724,7 @@ io.on('connection', (socket) => {
             player.allyProtectDisabled = false;
             player.isSick = player.role === CARRIER_ROLE;
             player.carrierRoleOptions = [];
+            player.mixerTargetId = null;
         });
 
         assignLovers(room, cfg.asikCount);
@@ -856,6 +874,19 @@ io.on('connection', (socket) => {
         checkWinCondition(code);
     });
 
+    socket.on('mixerAliasAction', ({ roomCode, targetId }) => {
+        const code = (roomCode || socket.roomCode || '').trim().toUpperCase();
+        const room = rooms[code];
+        const actor = room && room.players.find(player => player.id === socket.id);
+        if (!room || !['DAY', 'VOTE', 'DEFENSE', 'JUDGMENT'].includes(room.phase) ||
+            !actor || !actor.isAlive || actor.role !== MIXER_HAIN_ROLE) return;
+
+        const target = room.players.find(player => player.id === targetId && player.isAlive);
+        if (!target) return socket.emit('errorMsg', 'Yalnızca yaşayan bir oyuncuyu seçebilirsin!');
+        actor.mixerTargetId = target.id;
+        sendGameState(code);
+    });
+
     socket.on('sendMessage', ({ roomCode, text }) => {
         const code = (roomCode || socket.roomCode || '').trim().toUpperCase();
         const room = rooms[code];
@@ -957,6 +988,14 @@ io.on('connection', (socket) => {
             return;
         }
 
+        if (sender.role === MIXER_HAIN_ROLE && ['DAY', 'VOTE', 'DEFENSE', 'JUDGMENT'].includes(room.phase)) {
+            const alias = room.players.find(player => player.id === sender.mixerTargetId)?.username || sender.username;
+            buildMixerChatDeliveries(room.players, sender, text, alias).forEach(({ playerId, message }) => {
+                io.to(playerId).emit('chatMessage', message);
+            });
+            return;
+        }
+
         io.to(code).emit('chatMessage', { sender: sender.username, text, type: 'general' });
     });
 
@@ -1033,6 +1072,9 @@ io.on('connection', (socket) => {
             }
             if (actor.role === 'Düz Hain' && !actor.hasGun) {
                 return socket.emit('errorMsg', 'Silahın yoksa Düz Hain olarak gece saldırısı yapamazsın!');
+            }
+            if (actor.role === MIXER_HAIN_ROLE && !actor.hasGun) {
+                return socket.emit('errorMsg', 'Silahın yoksa Karıştırıcı Hain olarak gece saldırısı yapamazsın!');
             }
             if (actor.role === 'Büyücü Hain' && !actor.hasGun) {
                 return socket.emit('errorMsg', 'Silahın yoksa Büyücü Hain olarak saldırı yapamazsın; büyü gücünü kullanmalısın!');
@@ -2237,6 +2279,7 @@ module.exports = {
     buildRandomRolePool,
     pickRandomRoleSet,
     canRoleUseAttack,
+    buildMixerChatDeliveries,
     assignGuns,
     getUnusedRoleOptions,
     spreadSickness
