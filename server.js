@@ -2569,9 +2569,10 @@ function getLoverVictoryResult(room, alivePlayers) {
     if (aliveLovers.length !== 2 || alivePlayers.length > 3) return null;
     if (alivePlayers.some(player => ['Kundakçı', 'Seri Katil', 'Jester'].includes(player.role))) return null;
 
-    const hasLivingHain = alivePlayers.some(isHainPlayer);
+    const hasLivingCult = alivePlayers.some(isCultPlayer);
+    const hasLivingHain = alivePlayers.some(player => !isCultPlayer(player) && isHainPlayer(player));
     return {
-        winner: hasLivingHain ? 'HAİNLER' : 'AŞIKLAR',
+        winner: hasLivingCult ? 'TARİKAT' : (hasLivingHain ? 'HAİNLER' : 'AŞIKLAR'),
         msg: '💗 Aşıklar birlikte hayatta kaldı ve kazandı!'
     };
 }
