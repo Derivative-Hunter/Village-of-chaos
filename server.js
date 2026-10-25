@@ -144,6 +144,16 @@ function getDetectiveAnswer(target, category) {
     }
 }
 
+function getSheriffShotOutcome(actor, target) {
+    const targetIsArsonist = target.role === 'Kundakçı';
+    const targetIsTownsperson = !isHainPlayer(target) && !NEUTRAL_ROLES.includes(target.role);
+    return {
+        targetDies: !targetIsArsonist,
+        revealTargetRole: targetIsArsonist,
+        sheriffDies: !targetIsArsonist && targetIsTownsperson && !isHainPlayer(actor)
+    };
+}
+
 function buildMixerChatDeliveries(players, sender, text, alias) {
     return players.map(player => ({
         playerId: player.id,
@@ -490,7 +500,8 @@ function sendGameState(roomCode) {
                 id: p.id,
                 username: p.username,
                 isAlive: p.isAlive,
-                role: (!p.isAlive && p.role && !p.roleHidden) ? getDeadRoleLabel(p) : null,
+                role: p.roleRevealed && p.role ? p.role : ((!p.isAlive && p.role && !p.roleHidden) ? getDeadRoleLabel(p) : null),
+                roleRevealed: Boolean(p.roleRevealed),
                 isAllyTraitor: isAllyTraitor,
                 isAllyTarget: player.role === 'Müttefik' && player.allyTargetId === p.id,
                 isRevealed: p.isRevealed,
@@ -730,6 +741,7 @@ io.on('connection', (socket) => {
             p.ninjaUsed = false;
             p.mixerTargetId = null;
             p.astralRoleLastUsedDay = {};
+            p.roleRevealed = false;
         });
         room.hunterStand = null;
 
@@ -784,6 +796,7 @@ io.on('connection', (socket) => {
             player.astralRoleLastUsedDay = {};
             player.sheriffShotsUsed = 0;
             player.sheriffLastShotDay = 0;
+            player.roleRevealed = false;
         });
 
         assignLovers(room, cfg.asikCount);
@@ -837,13 +850,19 @@ io.on('connection', (socket) => {
 
         actor.sheriffShotsUsed = (actor.sheriffShotsUsed || 0) + 1;
         actor.sheriffLastShotDay = room.dayNumber;
-        target.isAlive = false;
-        target.roleHidden = false;
-        checkGunPass(room, target);
-        io.to(code).emit('systemAnnounce', `💥 ${target.username} gündüz vakti vurularak öldü!`);
+        const outcome = getSheriffShotOutcome(actor, target);
+        if (outcome.targetDies) {
+            target.isAlive = false;
+            target.roleHidden = false;
+            checkGunPass(room, target);
+        }
+        if (outcome.revealTargetRole) target.roleRevealed = true;
+        const announcement = outcome.revealTargetRole
+            ? `💥 ${target.username} adlı oyuncuya ateş edildi! Kundakçı olduğu ortaya çıktı ancak hayatta kaldı.`
+            : `💥 ${target.username} gündüz vakti vurularak öldü!`;
+        io.to(code).emit('systemAnnounce', announcement);
 
-        const isTownsperson = !isHainPlayer(target) && !NEUTRAL_ROLES.includes(target.role);
-        if (isTownsperson && !isHainPlayer(actor)) {
+        if (outcome.sheriffDies) {
             actor.isAlive = false;
             checkGunPass(room, actor);
             io.to(actor.id).emit('chatMessage', {
@@ -2477,6 +2496,7 @@ module.exports = {
     canRoleUseAttack,
     DETECTIVE_CATEGORIES,
     getDetectiveAnswer,
+    getSheriffShotOutcome,
     buildMixerChatDeliveries,
     canAstralUseRole,
     getAstralSources,

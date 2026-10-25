@@ -1006,7 +1006,7 @@
         <div class="role-list-item"><strong>👼 Melek:</strong> Öldükten sonra da gece yaşayan bir oyuncuyu saldırılardan koruyabilir; ölü oyuncuları koruyamaz.</div>
         <div class="role-list-item"><strong>👑 Başkan:</strong> Kendini ifşa ederse oy gücü 3 olur; yaşadığı sürece Hainlerin ve Seri Katilin kazanmasını engeller.</div>
         <div class="role-list-item"><strong>🔫 Vigilante:</strong> Toplam 3 mermisiyle geceleri bir oyuncuya saldırır; masum birini vurursa vicdan azabıyla ölür.</div>
-        <div class="role-list-item"><strong>🤠 Şerif:</strong> Gündüz sohbet veya oylama vaktinde günde bir kez, oyun boyunca toplam iki kez ateş edebilir. Köylü takımından birini vurursa kendisi de ölür; hain Şerif bu durumda ölmez. Ateş ettiği anda kimliği açıklanmaz.</div>
+        <div class="role-list-item"><strong>🤠 Şerif:</strong> Gündüz sohbet veya oylama vaktinde günde bir kez, oyun boyunca toplam iki kez ateş edebilir. Köylü takımından birini vurursa kendisi de ölür; hain Şerif bu durumda ölmez. Kundakçı hayatta kalır ve rolü açığa çıkar. Şerif'in kimliği açıklanmaz.</div>
         <div class="role-list-item"><strong>🪞 Düzenbaz Köylü:</strong> Gece bir eve gider. O eve gelen eylemler ziyaretçiye yansır; öldürmeye gelen kişi kendini vurur ve Düzenbaz da ölür. Kundakçıdan etkilenmez.</div>
         <div class="role-list-item"><strong>🎯 Avcı Köylü:</strong> Gece öldürülürse sabah 20 saniye daha yaşar ve bir kişiye ateş edebilir. Ateş etmese de süre sonunda ölür; Kundakçıya ateş ederse Kundakçı ölmez ama ortaya çıkar.</div>
         <div class="role-list-item"><strong>💗 Aşıklar:</strong> Oyun başında iki köylü veya bir köylü ile bir hain rastgele eşleşir. Birinin ölümü diğerini de öldürür. Gece bir kez aşığını koruyabilir ve gece özel sohbet edebilir. Tarafsızlarla birlikte kazanamazlar.</div>
@@ -1493,7 +1493,9 @@
             const isSelected = selectedTargetId === p.id;
             let roleTagHtml = '';
             const shadowRoleHtml = p.shadowRole ? `<div class="role-tag">🌑 ${p.shadowRole}</div>` : '';
-            if (!p.isAlive && p.role) {
+            if (p.roleRevealed && p.role) {
+                roleTagHtml = `<div class="role-tag">🔥 ${p.role} (Rolü açığa çıktı)</div>`;
+            } else if (!p.isAlive && p.role) {
                 roleTagHtml = `<div class="role-tag">💀 ${p.role}</div>`;
             }
 
@@ -1558,6 +1560,9 @@
     }
 
     function sheriffShoot(targetId) {
+        const target = latestPlayers.find(player => player.id === targetId);
+        const targetName = target ? target.username : 'bu oyuncu';
+        if (!confirm(`${targetName} adlı oyuncuya ateş etmek istediğine emin misin? Bu atış, toplam 2 hakkından birini kullanır.`)) return;
         socket.emit('sheriffAction', { roomCode: currentRoomCode, targetId });
     }
 
