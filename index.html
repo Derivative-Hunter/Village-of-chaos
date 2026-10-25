@@ -680,7 +680,7 @@
             <div class="role-category town">
                 <h5>🔫 Köy Takımı · Silahlı Köylüler</h5>
                 <div class="setting-grid">
-                    <div class="setting-item"><label>Rol sayısı (Vigilante / Başkan / Düzenbaz / Avcı):</label><input type="number" id="cfg-silahli-koylu" value="0" min="0" max="4" onchange="emitSettings()"></div>
+                    <div class="setting-item"><label>Rol sayısı (Vigilante / Şerif / Başkan / Düzenbaz / Avcı):</label><input type="number" id="cfg-silahli-koylu" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 </div>
             </div>
             <div class="role-category town">
@@ -761,6 +761,7 @@
                 <div class="setting-item"><label>Melek</label><input type="number" id="cfg-role-melek" data-role="Melek" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Uyutucu</label><input type="number" id="cfg-role-uyutucu" data-role="Uyutucu" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Vigilante</label><input type="number" id="cfg-role-vigilante" data-role="Vigilante" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Şerif</label><input type="number" id="cfg-role-serif" data-role="Şerif" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Başkan</label><input type="number" id="cfg-role-baskan" data-role="Başkan" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Düzenbaz Köylü</label><input type="number" id="cfg-role-duzenbaz" data-role="Düzenbaz Köylü" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Avcı Köylü</label><input type="number" id="cfg-role-avci" data-role="Avcı Köylü" value="0" min="0" max="5" onchange="emitSettings()"></div>
@@ -888,7 +889,7 @@
             </select>
             <div class="detective-role-note">
                 <strong>Dedektif Notu</strong>
-                <div><strong>Silah:</strong> Vigilante, silahlı hainler, Kundakçı, Seri Katil, Kayıp Hain</div>
+                <div><strong>Silah:</strong> Vigilante, Şerif, silahlı hainler, Kundakçı, Seri Katil, Kayıp Hain</div>
                 <div><strong>Koruyucu/engelleyici:</strong> Doktor, Tuzakçı Köylü, Düzenbaz Köylü, Uyutucu, Astral, Necromancer, Müttefik, Susturucu</div>
                 <div><strong>Bilgi:</strong> Ayakçı, Gözcü, Kahin Köylü, Gölge Ajanı, Büyücü Hain</div>
                 <div><strong>Üçünden biri:</strong> Yukarıdaki listelerden en az birindeki roller</div>
@@ -957,6 +958,7 @@
             <option value="Kahin Köylü">Kahin Köylü</option>
             <option value="Astral">Astral</option>
             <option value="Vigilante">Vigilante</option>
+            <option value="Şerif">Şerif</option>
             <option value="Uyutucu">Uyutucu</option>
             <option value="Başkan">Başkan</option>
             <option value="Düzenbaz Köylü">Düzenbaz Köylü</option>
@@ -1003,7 +1005,8 @@
         <div class="role-list-item"><strong>🏥 Doktor:</strong> Gece seçtiği bir oyuncuyu saldırılardan korur.</div>
         <div class="role-list-item"><strong>👼 Melek:</strong> Öldükten sonra da gece yaşayan bir oyuncuyu saldırılardan koruyabilir; ölü oyuncuları koruyamaz.</div>
         <div class="role-list-item"><strong>👑 Başkan:</strong> Kendini ifşa ederse oy gücü 3 olur; yaşadığı sürece Hainlerin ve Seri Katilin kazanmasını engeller.</div>
-        <div class="role-list-item"><strong>🔫 Vigilante:</strong> Gece sınırlı mermisiyle bir oyuncuya saldırır; masum birini vurursa vicdan azabıyla ölür.</div>
+        <div class="role-list-item"><strong>🔫 Vigilante:</strong> Toplam 3 mermisiyle geceleri bir oyuncuya saldırır; masum birini vurursa vicdan azabıyla ölür.</div>
+        <div class="role-list-item"><strong>🤠 Şerif:</strong> Gündüz sohbet veya oylama vaktinde günde bir kez, oyun boyunca toplam iki kez ateş edebilir. Köylü takımından birini vurursa kendisi de ölür; hain Şerif bu durumda ölmez. Ateş ettiği anda kimliği açıklanmaz.</div>
         <div class="role-list-item"><strong>🪞 Düzenbaz Köylü:</strong> Gece bir eve gider. O eve gelen eylemler ziyaretçiye yansır; öldürmeye gelen kişi kendini vurur ve Düzenbaz da ölür. Kundakçıdan etkilenmez.</div>
         <div class="role-list-item"><strong>🎯 Avcı Köylü:</strong> Gece öldürülürse sabah 20 saniye daha yaşar ve bir kişiye ateş edebilir. Ateş etmese de süre sonunda ölür; Kundakçıya ateş ederse Kundakçı ölmez ama ortaya çıkar.</div>
         <div class="role-list-item"><strong>💗 Aşıklar:</strong> Oyun başında iki köylü veya bir köylü ile bir hain rastgele eşleşir. Birinin ölümü diğerini de öldürür. Gece bir kez aşığını koruyabilir ve gece özel sohbet edebilir. Tarafsızlarla birlikte kazanamazlar.</div>
@@ -1021,7 +1024,7 @@
         <div class="role-list-item evil"><strong>💀 Necromancer:</strong> Silahı yoksa ölü havuzundaki uygun bir rolün gücünü yaşayan bir hedefe yönlendirir. Vigilante ve Ninja Hain'in kullanılmamış haklarını tüketir; araştırma bilgileri yalnızca Necromancer'a gelir.</div>
         <div class="role-list-item evil"><strong>🪄 Büyücü Hain:</strong> Gece bir rolün gücünü ele geçirip başka bir hedefe kullandırır. Kontrol edilen rol o gece eylem yapamaz; Kundakçı kontrol edilemez.</div>
         <div class="role-list-item evil"><strong>👂 Duyucu Hain:</strong> Gündüz fısıltılarını görür. Gece hainlerle veya ölülerle konuşabilir; ölüler onu Gizemli Hain olarak görür.</div>
-        <div class="role-list-item evil"><strong>🎭 Hain Köylü:</strong> Rastgele bir köy rolüyle oynar ve o rolün normal yeteneğini kullanır; Düzenbaz Köylü veya Avcı Köylü de olabilir. Hain takımındadır ve silah alamaz. Vigilante olursa 2 mermisi vardır ve masum vurduğunda ölmez; hain takımında tek kaldığında üç gün dayanırsa kazanır.</div>
+        <div class="role-list-item evil"><strong>🎭 Hain Köylü:</strong> Rastgele bir köy rolüyle oynar ve o rolün normal yeteneğini kullanır; Düzenbaz Köylü, Şerif veya Avcı Köylü de olabilir. Hain takımındadır ve silah alamaz. Vigilante olursa 3 mermisi vardır ve masum vurduğunda ölmez; hain takımında tek kaldığında üç gün dayanırsa kazanır.</div>
 
         <h3 style="color: #c084fc; margin: 16px 0 10px;">⚖️ Tarafsız (Neutral) Takımı</h3>
         <div class="role-list-item neutral"><strong>🎭 Jester:</strong> Gündüz oylamasıyla idam edilirse kendi özel zaferini kazanır.</div>
@@ -1268,7 +1271,7 @@
         loadNotes();
     });
 
-    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, astralTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions, mixerTargetId }) => {
+    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, astralTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions, mixerTargetId, sheriffShotsUsed, sheriffLastShotDay }) => {
         players.forEach(player => {
             if (myRole === 'Gölge Ajanı' && player.shadowRole) knownShadowRoles[player.id] = player.shadowRole;
         });
@@ -1384,6 +1387,7 @@
             let suikastBtnHtml = '';
             let hirsizBtnHtml = '';
             let loverProtectBtnHtml = '';
+            let sheriffShotBtnHtml = '';
 
             const canDeadAllyProtect = !amIAlive && myRole === 'Müttefik' && !allyProtectDisabled && phase === 'NIGHT';
             if (amIAlive || hunterStand || (myRole === 'Melek' && !amIAlive && phase === 'NIGHT') || canDeadAllyProtect) {
@@ -1392,6 +1396,9 @@
                 }
 
                 if (amIAlive && p.isAlive && !isMe && (phase === 'DAY' || phase === 'VOTE')) {
+                    if (myRole === 'Şerif' && sheriffShotsUsed < 2 && sheriffLastShotDay !== dayNumber) {
+                        sheriffShotBtnHtml = `<button class="card-btn btn-danger" onclick="sheriffShoot('${p.id}')">🤠 Ateş Et (${sheriffShotsUsed + 1}/2)</button>`;
+                    }
                     if (myRole === 'Suikastçi' && dayNumber > 1 && !hasAssassinated) {
                         suikastBtnHtml = `<button class="card-btn btn-danger" onclick="openSuikastModal('${p.id}', '${p.username}')">🎯 Suikast Yap</button>`;
                     }
@@ -1416,7 +1423,7 @@
                             return true;
                         })(myRole);
 
-                        if (((amIAlive && myRole !== 'Melek') || (myRole === 'Melek' && !amIAlive) || canDeadAllyProtect) && !['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
+                        if (((amIAlive && myRole !== 'Melek') || (myRole === 'Melek' && !amIAlive) || canDeadAllyProtect) && !['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü', 'Şerif'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
                             let btnLabel = '🎯 Eylem';
                             if (myRole === 'Doktor' || myRole === 'Melek') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
                             else if (myRole === 'Müttefik') btnLabel = dayNumber === 1 ? '🤝 Müttefikini Seç' : '🛡️ Müttefikini Koru';
@@ -1514,6 +1521,7 @@
                     <div style="width: 100%;">
                         ${actionBtnHtml}
                         ${suikastBtnHtml}
+                        ${sheriffShotBtnHtml}
                         ${hirsizBtnHtml}
                         ${loverProtectBtnHtml}
                         ${whisperBtnHtml}
@@ -1547,6 +1555,10 @@
 
     function hunterShoot(targetId) {
         socket.emit('hunterAction', { roomCode: currentRoomCode, targetId });
+    }
+
+    function sheriffShoot(targetId) {
+        socket.emit('sheriffAction', { roomCode: currentRoomCode, targetId });
     }
 
     function handleWhisper(targetId) {
