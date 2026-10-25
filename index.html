@@ -73,6 +73,7 @@
         .role-category.town h5 { color: #38bdf8; }
         .role-category.hain h5 { color: #f87171; }
         .role-category.neutral h5 { color: #c084fc; }
+        .role-category.cult h5 { color: #86efac; }
         .role-category .setting-grid { gap: 7px 12px; }
         .night-role-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
         .night-role-tools select, .night-role-tools button { width: auto; min-width: 150px; margin: 0; }
@@ -344,6 +345,7 @@
         .chat-msg.system { color: #f59e0b; font-weight: 600; font-size: 12.5px; }
         .chat-msg.general { background: rgba(255,255,255,0.04); color: #e2e8f0; }
         .chat-msg.hain { background: rgba(220, 38, 38, 0.2); color: #fca5a5; border: 1px solid rgba(220, 38, 38, 0.3); }
+        .chat-msg.cult { background: rgba(34, 197, 94, 0.16); color: #bbf7d0; border: 1px solid rgba(34, 197, 94, 0.38); }
         .chat-msg.dead { color: #64748b; font-style: italic; }
         .chat-msg.whisper { background: rgba(168, 85, 247, 0.2); color: #e9d5ff; border: 1px solid rgba(168, 85, 247, 0.3); }
         .chat-msg.spy { background: rgba(234, 179, 8, 0.2); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.3); }
@@ -744,6 +746,12 @@
                     <div class="setting-item"><label>Rastgele tarafsız rolü sayısı:</label><input type="number" id="cfg-random-neutral" value="0" min="0" max="20" onchange="emitSettings()"></div>
                 </div>
             </div>
+            <div class="role-category cult">
+                <h5>🕯️ Tarikat Takımı</h5>
+                <div class="setting-grid">
+                    <div class="setting-item"><label>Rol sayısı (1: Lider, 2: Lider + Araya Sızan):</label><input type="number" id="cfg-tarikat" value="0" min="0" max="2" onchange="emitSettings()"></div>
+                </div>
+            </div>
             <div class="role-category town">
                 <h5>🎲 Rastgele Tümü</h5>
                 <div class="setting-grid">
@@ -904,6 +912,10 @@
             <button class="btn-action-purple" onclick="setDuyucuChatMode('ölüler')">💀 Ölülerle Konuş</button>
             <button class="btn-action-purple hidden" id="duyucu-lover-chat-btn" onclick="setLoverChatMode()">💗 Aşığınla Konuş</button>
         </div>
+        <div id="cult-tools" class="night-role-tools hidden">
+            <button class="btn-action-purple" onclick="setCultChatMode()">🕯️ Tarikatla Konuş</button>
+            <button class="btn-action-purple hidden" id="infiltrator-hain-chat-btn" onclick="setHainChatMode()">👹 Hainlerle Konuş</button>
+        </div>
         <div id="lover-tools" class="night-role-tools hidden">
             <button class="btn-action-purple" onclick="setLoverChatMode()">💗 Aşıklarla Konuş</button>
             <button id="lover-hain-chat-btn" class="btn-action-pink hidden" onclick="setHainChatMode()">👹 Hainlerle Konuş</button>
@@ -1006,7 +1018,7 @@
         <div class="role-list-item"><strong>👼 Melek:</strong> Öldükten sonra da gece yaşayan bir oyuncuyu saldırılardan koruyabilir; ölü oyuncuları koruyamaz.</div>
         <div class="role-list-item"><strong>👑 Başkan:</strong> Kendini ifşa ederse oy gücü 3 olur; yaşadığı sürece Hainlerin ve Seri Katilin kazanmasını engeller.</div>
         <div class="role-list-item"><strong>🔫 Vigilante:</strong> Toplam 3 mermisiyle geceleri bir oyuncuya saldırır; masum birini vurursa vicdan azabıyla ölür.</div>
-        <div class="role-list-item"><strong>🤠 Şerif:</strong> Gündüz sohbet veya oylama vaktinde günde bir kez, oyun boyunca toplam iki kez ateş edebilir. Köylü takımından birini vurursa kendisi de ölür; hain Şerif bu durumda ölmez. Kundakçı hayatta kalır ve rolü açığa çıkar. Şerif'in kimliği açıklanmaz.</div>
+        <div class="role-list-item"><strong>🤠 Şerif:</strong> 2. günden itibaren gündüz sohbet veya oylama vaktinde günde bir kez, oyun boyunca toplam iki kez ateş edebilir. Köylü takımından birini vurursa kendisi de ölür; hain Şerif bu durumda ölmez. Kundakçı hayatta kalır ve rolü açığa çıkar. Hayattayken Başkan gibi Hain ve Seri Katil zaferini engeller; ateş ettiği anda kimliği açıklanmaz.</div>
         <div class="role-list-item"><strong>🪞 Düzenbaz Köylü:</strong> Gece bir eve gider. O eve gelen eylemler ziyaretçiye yansır; öldürmeye gelen kişi kendini vurur ve Düzenbaz da ölür. Kundakçıdan etkilenmez.</div>
         <div class="role-list-item"><strong>🎯 Avcı Köylü:</strong> Gece öldürülürse sabah 20 saniye daha yaşar ve bir kişiye ateş edebilir. Ateş etmese de süre sonunda ölür; Kundakçıya ateş ederse Kundakçı ölmez ama ortaya çıkar.</div>
         <div class="role-list-item"><strong>💗 Aşıklar:</strong> Oyun başında iki köylü veya bir köylü ile bir hain rastgele eşleşir. Birinin ölümü diğerini de öldürür. Gece bir kez aşığını koruyabilir ve gece özel sohbet edebilir. Tarafsızlarla birlikte kazanamazlar.</div>
@@ -1025,6 +1037,11 @@
         <div class="role-list-item evil"><strong>🪄 Büyücü Hain:</strong> Gece bir rolün gücünü ele geçirip başka bir hedefe kullandırır. Kontrol edilen rol o gece eylem yapamaz; Kundakçı kontrol edilemez.</div>
         <div class="role-list-item evil"><strong>👂 Duyucu Hain:</strong> Gündüz fısıltılarını görür. Gece hainlerle veya ölülerle konuşabilir; ölüler onu Gizemli Hain olarak görür.</div>
         <div class="role-list-item evil"><strong>🎭 Hain Köylü:</strong> Rastgele bir köy rolüyle oynar ve o rolün normal yeteneğini kullanır; Düzenbaz Köylü, Şerif veya Avcı Köylü de olabilir. Hain takımındadır ve silah alamaz. Vigilante olursa 3 mermisi vardır ve masum vurduğunda ölmez; hain takımında tek kaldığında üç gün dayanırsa kazanır.</div>
+
+        <h3 style="color: #86efac; margin: 16px 0 10px;">🕯️ Tarikat Takımı</h3>
+        <div class="role-list-item"><strong>🕯️ Tarikat Lideri:</strong> Tek gecelerde bir oyuncuya saldırır; çift gecelerde Köylü, Hırsız, Taşıyıcı veya Müttefik'i tarikata dönüştürmeye çalışır. Uygun değilse dönüşüm başarısız olur.</div>
+        <div class="role-list-item"><strong>🕵️ Araya Sızan:</strong> Tarikat üyesidir; Hainler onu takım arkadaşı olarak görür, o da Hainleri görür ve Hain sohbetine katılır. Hain silahını alamaz. Tarikat silahı kendisine geçerse her gece saldırabilir.</div>
+        <div class="role-list-item"><strong>Tarikat silahı:</strong> Silah sahibi ölürse canlı dönüştürülmüş bir üyeye rastgele geçer; dönüştürülmüş üye yoksa Araya Sızan'a geçer. Silah sahibi normal gece rolünü kullanamaz. Silahı dönüştürülmüş biri taşıyorsa yalnız tek gecelerde saldırır. Tarikat, diğer tehditler yok edilip çoğunluğu elde ettiğinde kazanır.</div>
 
         <h3 style="color: #c084fc; margin: 16px 0 10px;">⚖️ Tarafsız (Neutral) Takımı</h3>
         <div class="role-list-item neutral"><strong>🎭 Jester:</strong> Gündüz oylamasıyla idam edilirse kendi özel zaferini kazanır.</div>
@@ -1066,6 +1083,8 @@
     let suikastTargetId = null;
     let duyucuChatMode = 'hainler';
     let loverChatMode = false;
+    let cultChatMode = false;
+    let hainChatMode = false;
     let chatFilter = 'all';
     const chatHistory = [];
 
@@ -1105,6 +1124,7 @@
             korumaKoylusuCount: parseInt(document.getElementById('cfg-koruma-koylusu').value) || 0,
             silahliKoyluCount: parseInt(document.getElementById('cfg-silahli-koylu').value) || 0,
             arastirmaciKoyluCount: parseInt(document.getElementById('cfg-arastirmaci-koylu').value) || 0,
+            tarikatCount: parseInt(document.getElementById('cfg-tarikat').value) || 0,
             hainKoyluCount: parseInt(document.getElementById('cfg-hain-koylu').value) || 0,
             randomTownCount: parseInt(document.getElementById('cfg-random-town').value) || 0,
             randomHainCount: parseInt(document.getElementById('cfg-random-hain').value) || 0,
@@ -1131,6 +1151,7 @@
         document.getElementById('cfg-koruma-koylusu').value = settings.korumaKoylusuCount ?? 0;
         document.getElementById('cfg-silahli-koylu').value = settings.silahliKoyluCount ?? 0;
         document.getElementById('cfg-arastirmaci-koylu').value = settings.arastirmaciKoyluCount ?? 0;
+        document.getElementById('cfg-tarikat').value = settings.tarikatCount ?? 0;
         document.getElementById('cfg-hain-koylu').value = settings.hainKoyluCount ?? 0;
         document.getElementById('cfg-random-town').value = settings.randomTownCount ?? 0;
         document.getElementById('cfg-random-hain').value = settings.randomHainCount ?? 0;
@@ -1152,7 +1173,7 @@
     }
 
     function setInputsDisabled(disabled) {
-        const ids = ['cfg-koruma-koylusu', 'cfg-silahli-koylu', 'cfg-arastirmaci-koylu', 'cfg-asik', 'cfg-silahli-hain', 'cfg-destekci-hain', 'cfg-hain-koylu', 'cfg-silahli-tarafsiz', 'cfg-normal-tarafsiz', 'cfg-day', 'cfg-vote', 'cfg-defense', 'cfg-judgment', 'cfg-night', 'cfg-bots', 'cfg-random-town', 'cfg-random-hain', 'cfg-random-neutral', 'cfg-random-all'];
+        const ids = ['cfg-koruma-koylusu', 'cfg-silahli-koylu', 'cfg-arastirmaci-koylu', 'cfg-tarikat', 'cfg-asik', 'cfg-silahli-hain', 'cfg-destekci-hain', 'cfg-hain-koylu', 'cfg-silahli-tarafsiz', 'cfg-normal-tarafsiz', 'cfg-day', 'cfg-vote', 'cfg-defense', 'cfg-judgment', 'cfg-night', 'cfg-bots', 'cfg-random-town', 'cfg-random-hain', 'cfg-random-neutral', 'cfg-random-all'];
         ids.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.disabled = disabled;
@@ -1271,7 +1292,7 @@
         loadNotes();
     });
 
-    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, astralTargets, phase, timeLeft, dayNumber, defendantId, hasGun, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions, mixerTargetId, sheriffShotsUsed, sheriffLastShotDay }) => {
+    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, astralTargets, phase, timeLeft, dayNumber, defendantId, hasGun, hasCultGun, cultActionMode, isCultMember, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions, mixerTargetId, sheriffShotsUsed, sheriffLastShotDay }) => {
         players.forEach(player => {
             if (myRole === 'Gölge Ajanı' && player.shadowRole) knownShadowRoles[player.id] = player.shadowRole;
         });
@@ -1293,6 +1314,8 @@
         const carrierTools = document.getElementById('carrier-tools');
         const duyucuTools = document.getElementById('duyucu-tools');
         const duyucuLoverChatBtn = document.getElementById('duyucu-lover-chat-btn');
+        const cultTools = document.getElementById('cult-tools');
+        const infiltratorHainChatBtn = document.getElementById('infiltrator-hain-chat-btn');
         const loverTools = document.getElementById('lover-tools');
         const loverHainChatBtn = document.getElementById('lover-hain-chat-btn');
         const baskanBtn = document.getElementById('baskan-reveal-btn');
@@ -1322,6 +1345,8 @@
         carrierTools.classList.add('hidden');
         duyucuTools.classList.add('hidden');
         duyucuLoverChatBtn.classList.add('hidden');
+        cultTools.classList.add('hidden');
+        infiltratorHainChatBtn.classList.add('hidden');
         loverTools.classList.add('hidden');
         loverHainChatBtn.classList.add('hidden');
         baskanBtn.classList.add('hidden');
@@ -1351,27 +1376,31 @@
             phaseTitle.innerText = `🌙 GECE VAKTİ (${timeLeft}s)`;
             phaseSubtext.innerText = selectedTargetName ? `Gece Eylemi Hedefi: ${selectedTargetName}` : 'Gece Eylemi Hedefi: Henüz Seçilmedi';
             if (myRole === 'Kundakçı' && amIAlive) arsoBtn.classList.remove('hidden');
-            if (myRole === 'Büyücü Hain' && amIAlive && !hasGun) {
+            if (myRole === 'Büyücü Hain' && amIAlive && !hasGun && !hasCultGun) {
                 setupWizardTools(wizardTargets, players);
                 wizardTools.classList.remove('hidden');
             }
-            if (myRole === 'Necromancer' && amIAlive && !hasGun) {
+            if (myRole === 'Necromancer' && amIAlive && !hasGun && !hasCultGun) {
                 setupNecromancerTools(necromancerTargets, players);
                 necromancerTools.classList.remove('hidden');
             }
-            if (myRole === 'Astral' && amIAlive) {
+            if (myRole === 'Astral' && amIAlive && !hasCultGun) {
                 setupAstralTools(astralTargets || [], players);
                 astralTools.classList.remove('hidden');
             }
-            if (myRole === 'Dedektif' && amIAlive) detectiveTools.classList.remove('hidden');
+            if (myRole === 'Dedektif' && amIAlive && !hasCultGun) detectiveTools.classList.remove('hidden');
             if (myRole === 'Duyucu Hain' && amIAlive) {
                 duyucuTools.classList.remove('hidden');
                 if (isLover) duyucuLoverChatBtn.classList.remove('hidden');
             }
+            if (isCultMember && amIAlive) {
+                cultTools.classList.remove('hidden');
+                if (myRole === 'Araya Sızan') infiltratorHainChatBtn.classList.remove('hidden');
+            }
             if (isLover && amIAlive && myRole !== 'Duyucu Hain') loverTools.classList.remove('hidden');
             if (isLover && isHain && amIAlive && myRole !== 'Duyucu Hain' && myRole !== 'Kayıp Hain') loverHainChatBtn.classList.remove('hidden');
-            if (myRole === 'Vigilante' && amIAlive) vigilantePassBtn.classList.remove('hidden');
-            if ((myRole === 'Jester' || myRole === 'Müttefik') && amIAlive) nightActionPassBtn.classList.remove('hidden');
+            if (myRole === 'Vigilante' && amIAlive && !hasCultGun) vigilantePassBtn.classList.remove('hidden');
+            if ((myRole === 'Jester' || myRole === 'Müttefik') && amIAlive && !hasCultGun) nightActionPassBtn.classList.remove('hidden');
         }
         if ((phase === 'DAY' || phase === 'VOTE') && myRole === 'Taşıyıcı (Hastalıklı)' && carrierRoleOptions && carrierRoleOptions.length > 0) {
             setupCarrierTools(carrierRoleOptions);
@@ -1388,6 +1417,7 @@
             let hirsizBtnHtml = '';
             let loverProtectBtnHtml = '';
             let sheriffShotBtnHtml = '';
+            let cultActionBtnHtml = '';
 
             const canDeadAllyProtect = !amIAlive && myRole === 'Müttefik' && !allyProtectDisabled && phase === 'NIGHT';
             if (amIAlive || hunterStand || (myRole === 'Melek' && !amIAlive && phase === 'NIGHT') || canDeadAllyProtect) {
@@ -1396,7 +1426,7 @@
                 }
 
                 if (amIAlive && p.isAlive && !isMe && (phase === 'DAY' || phase === 'VOTE')) {
-                    if (myRole === 'Şerif' && sheriffShotsUsed < 2 && sheriffLastShotDay !== dayNumber) {
+                    if (myRole === 'Şerif' && dayNumber > 1 && sheriffShotsUsed < 2 && sheriffLastShotDay !== dayNumber) {
                         sheriffShotBtnHtml = `<button class="card-btn btn-danger" onclick="sheriffShoot('${p.id}')">🤠 Ateş Et (${sheriffShotsUsed + 1}/2)</button>`;
                     }
                     if (myRole === 'Suikastçi' && dayNumber > 1 && !hasAssassinated) {
@@ -1408,7 +1438,7 @@
                 }
 
                 if (p.isAlive) {
-                    if (amIAlive && isLover && phase === 'NIGHT' && p.id === loverPartnerId && !loverProtectUsed) {
+                    if (amIAlive && isLover && !hasCultGun && phase === 'NIGHT' && p.id === loverPartnerId && !loverProtectUsed) {
                         loverProtectBtnHtml = `<button class="card-btn btn-action-purple" onclick="handleNightAction('${p.id}', 'LOVER_PROTECT')">💗 Aşığını Koru</button>`;
                     }
                     if (phase === 'VOTE' && !isMe && myRole !== 'Kayıp Hain') {
@@ -1423,7 +1453,7 @@
                             return true;
                         })(myRole);
 
-                        if (((amIAlive && myRole !== 'Melek') || (myRole === 'Melek' && !amIAlive) || canDeadAllyProtect) && !['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü', 'Şerif'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
+                        if (((amIAlive && myRole !== 'Melek') || (myRole === 'Melek' && !amIAlive) || canDeadAllyProtect) && !hasCultGun && !['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü', 'Şerif', 'Araya Sızan'].includes(myRole) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
                             let btnLabel = '🎯 Eylem';
                             if (myRole === 'Doktor' || myRole === 'Melek') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
                             else if (myRole === 'Müttefik') btnLabel = dayNumber === 1 ? '🤝 Müttefikini Seç' : '🛡️ Müttefikini Koru';
@@ -1486,6 +1516,11 @@
                 }
             }
 
+            if (phase === 'NIGHT' && amIAlive && hasCultGun && cultActionMode && p.isAlive && !isMe) {
+                const actionLabel = cultActionMode === 'CONVERT' ? '🕯️ Tarikata Çağır' : '🗡️ Tarikat İçin Saldır';
+                cultActionBtnHtml = `<button class="card-btn btn-action-purple" onclick="cultAction('${p.id}')">${actionLabel}</button>`;
+            }
+
             if (hunterStand && phase === 'DAY' && p.isAlive && !isMe) {
                 actionBtnHtml = `<button class="card-btn btn-danger" onclick="hunterShoot('${p.id}')">🎯 Ateş Et</button>`;
             }
@@ -1502,6 +1537,7 @@
             const isAllyTraitor = p.isAllyTraitor;
             const nameClass = isAllyTraitor ? 'player-name text-red' : (isLover && (isMe || p.id === loverPartnerId) ? 'player-name lover-name' : 'player-name');
             const allyTag = isAllyTraitor && !isMe ? `<span style="font-size:10px; color:#ef4444; font-weight:bold;">[HAİN MÜTTEFİK]</span>` : '';
+            const cultTag = p.isCultAlly ? `<span style="font-size:10px; color:#86efac; font-weight:bold;">[TARİKAT]</span>` : '';
             const allyTargetTag = p.isAllyTarget ? `<span style="font-size:10px; color:#22c55e; font-weight:bold;">[🤝 MÜTTEFİKİN]</span>` : '';
             const baskanTag = p.isRevealed ? `<span style="font-size:10px; color:#eab308; font-weight:bold;">[👑 BAŞKAN]</span>` : '';
             const dousedTag = p.isDoused ? `<span style="font-size:10px; color:#f97316; font-weight:bold;">[🔥 EVİ YAĞLANDI]</span>` : '';
@@ -1514,6 +1550,7 @@
                         <div class="house-icon">🏠</div>
                         <div class="${nameClass}">${p.username} ${isMe ? '(Sen)' : ''}</div>
                         ${allyTag}
+                        ${cultTag}
                         ${allyTargetTag}
                         ${baskanTag}
                         ${dousedTag}
@@ -1524,6 +1561,7 @@
                         ${actionBtnHtml}
                         ${suikastBtnHtml}
                         ${sheriffShotBtnHtml}
+                        ${cultActionBtnHtml}
                         ${hirsizBtnHtml}
                         ${loverProtectBtnHtml}
                         ${whisperBtnHtml}
@@ -1564,6 +1602,10 @@
         const targetName = target ? target.username : 'bu oyuncu';
         if (!confirm(`${targetName} adlı oyuncuya ateş etmek istediğine emin misin? Bu atış, toplam 2 hakkından birini kullanır.`)) return;
         socket.emit('sheriffAction', { roomCode: currentRoomCode, targetId });
+    }
+
+    function cultAction(targetId) {
+        socket.emit('cultAction', { roomCode: currentRoomCode, targetId });
     }
 
     function handleWhisper(targetId) {
@@ -1642,6 +1684,8 @@
     function setDuyucuChatMode(mode) {
         duyucuChatMode = mode;
         loverChatMode = false;
+        cultChatMode = false;
+        hainChatMode = false;
         const input = document.getElementById('chat-input');
         input.value = mode === 'ölüler' ? '/ölüler ' : '';
         input.placeholder = mode === 'ölüler' ? 'Ölüler sohbetine mesaj yaz...' : 'Hainler sohbetine mesaj yaz...';
@@ -1651,6 +1695,8 @@
     function setLoverChatMode() {
         loverChatMode = true;
         duyucuChatMode = '';
+        cultChatMode = false;
+        hainChatMode = false;
         const input = document.getElementById('chat-input');
         input.value = '/aşıklar ';
         input.placeholder = 'Aşık sohbetine mesaj yaz...';
@@ -1660,9 +1706,22 @@
     function setHainChatMode() {
         loverChatMode = false;
         duyucuChatMode = '';
+        cultChatMode = false;
+        hainChatMode = true;
         const input = document.getElementById('chat-input');
         input.value = '/hainler ';
         input.placeholder = 'Hain sohbetine mesaj yaz...';
+        input.focus();
+    }
+
+    function setCultChatMode() {
+        loverChatMode = false;
+        duyucuChatMode = '';
+        cultChatMode = true;
+        hainChatMode = false;
+        const input = document.getElementById('chat-input');
+        input.value = '/tarikat ';
+        input.placeholder = 'Tarikat sohbetine mesaj yaz...';
         input.focus();
     }
 
@@ -1691,6 +1750,10 @@
         const isNight = document.getElementById('phase-title').innerText.includes('GECE VAKTİ');
         const message = loverChatMode && isNight && !text.startsWith('/aşıklar ')
             ? `/aşıklar ${text}`
+            : cultChatMode && isNight && !text.startsWith('/tarikat ')
+            ? `/tarikat ${text}`
+            : hainChatMode && isNight && !text.startsWith('/hainler ')
+            ? `/hainler ${text}`
             : myRole === 'Duyucu Hain' && isNight && duyucuChatMode === 'ölüler' && !text.startsWith('/ölüler ')
             ? `/ölüler ${text}`
             : (myRole === 'Duyucu Hain' && isNight && duyucuChatMode === 'hainler' && !text.startsWith('/hainler ')
@@ -1699,6 +1762,8 @@
         input.value = '';
         loverChatMode = false;
         duyucuChatMode = '';
+        cultChatMode = false;
+        hainChatMode = false;
         input.placeholder = 'Mesaj yaz veya oyuncudan \'Fısılda\' seç...';
         input.focus();
     }
@@ -1783,6 +1848,7 @@
     socket.on('chatMessage', ({ sender, text, type }) => {
         let prefix = '';
         if (type === 'hain') prefix = '[HAİN SOHBETİ] ';
+        else if (type === 'cult') prefix = '[TARİKAT SOHBETİ] ';
         else if (type === 'dead') prefix = '[ÖLÜ SOHBETİ] ';
         else if (type === 'spy') prefix = '[CASUS SOHBETİ] ';
 

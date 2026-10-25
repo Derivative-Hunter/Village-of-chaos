@@ -29,18 +29,25 @@ const ROLE_CATEGORIES = {
     neutral: {
         'Silahlı Tarafsızlar': ['Kundakçı', 'Seri Katil'],
         'Normal Tarafsızlar': ['Jester', 'Hırsız', 'Müttefik', 'Taşıyıcı (Hastalıklı)']
+    },
+    cult: {
+        'Tarikat Takımı': ['Tarikat Lideri', 'Araya Sızan']
     }
 };
 
 const MIXER_HAIN_ROLE = 'Karıştırıcı Hain';
-const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'];
+const ARAYA_SIZAN_ROLE = 'Araya Sızan';
+const CULT_LEADER_ROLE = 'Tarikat Lideri';
+const CULT_ROLE_NAMES = Object.values(ROLE_CATEGORIES.cult).flat();
+const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain', ARAYA_SIZAN_ROLE];
 const NECROMANCER_SOURCE_ROLES = ['Doktor', 'Uyutucu', 'Tuzakçı Köylü', 'Vigilante', 'Düzenbaz Köylü', 'Ayakçı', 'Gözcü', 'Kahin Köylü', 'Ninja Hain', 'Kayıp Hain', 'Gölge Ajanı', 'Susturucu', 'Seri Katil'];
 const ASTRAL_SOURCE_ROLES = ['Doktor', 'Uyutucu', 'Tuzakçı Köylü', 'Vigilante', 'Düzenbaz Köylü', 'Ayakçı', 'Gözcü', 'Kahin Köylü'];
 const LOST_HAIN_ROLE = 'Kayıp Hain';
 const HAIN_KOYLU_ROLE = 'Hain Köylü';
 const CARRIER_ROLE = 'Taşıyıcı (Hastalıklı)';
-const isHainPlayer = player => Boolean(player && (player.isHain || ALL_HAIN_ROLES.includes(player.role)));
-const isCountedHain = player => Boolean(isHainPlayer(player) && player.role !== LOST_HAIN_ROLE);
+const isHainPlayer = player => Boolean(player && (player.role === ARAYA_SIZAN_ROLE || (!player.isCult && (player.isHain || ALL_HAIN_ROLES.includes(player.role)))));
+const isCultPlayer = player => Boolean(player && player.isCult);
+const isCountedHain = player => Boolean(isHainPlayer(player) && ![LOST_HAIN_ROLE, ARAYA_SIZAN_ROLE].includes(player.role));
 const NON_VISITING_ROLES = ['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Jester'];
 const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', 'Jester', 'Hırsız', 'Müttefik', CARRIER_ROLE];
 
@@ -60,6 +67,7 @@ const ALL_RANDOM_ROLE_POOL = [...new Set([
 const CONFIGURABLE_ROLE_NAMES = [
     ...roleNames(ROLE_CATEGORIES.town),
     ...roleNames(ROLE_CATEGORIES.hain).filter(role => role !== HAIN_KOYLU_ROLE),
+    ...roleNames(ROLE_CATEGORIES.cult),
     'Düz Hain',
     ...roleNames(ROLE_CATEGORIES.neutral),
     'Düz Köylü'
@@ -154,6 +162,47 @@ function getSheriffShotOutcome(actor, target) {
     };
 }
 
+function getCultActionMode(player, nightNumber) {
+    if (!player || !player.isAlive || !isCultPlayer(player) || !player.hasCultGun) return null;
+    if (player.role === CULT_LEADER_ROLE) return nightNumber % 2 === 0 ? 'CONVERT' : 'KILL';
+    if (player.role === ARAYA_SIZAN_ROLE) return 'KILL';
+    return player.isCultConverted && nightNumber % 2 === 1 ? 'KILL' : null;
+}
+
+function isCultConversionTarget(target) {
+    if (!target || isCultPlayer(target) || isHainPlayer(target)) return false;
+    return TOWN_ROLES.includes(target.role) || ['Hırsız', CARRIER_ROLE, 'Müttefik'].includes(target.role);
+}
+
+function getCultWeaponRecipient(players, deadPlayerId) {
+    const convertedPlayers = players.filter(player =>
+        player.id !== deadPlayerId && player.isAlive && player.isCultConverted
+    );
+    if (convertedPlayers.length > 0) {
+        return convertedPlayers[Math.floor(Math.random() * convertedPlayers.length)];
+    }
+    return players.find(player =>
+        player.id !== deadPlayerId && player.isAlive && player.role === ARAYA_SIZAN_ROLE
+    ) || null;
+}
+
+function hasCultVictory(room, alivePlayers = room.players.filter(player => player.isAlive)) {
+    const aliveCult = alivePlayers.filter(isCultPlayer);
+    const aliveThreats = alivePlayers.filter(player => !isCultPlayer(player) && (
+        isHainPlayer(player) || ['Seri Katil', 'Kundakçı'].includes(player.role)
+    ));
+    return aliveCult.length > 0 && aliveThreats.length === 0 &&
+        hasHainMajority(aliveCult.length, alivePlayers.length);
+}
+
+function canSheriffShootOnDay(dayNumber) {
+    return Number(dayNumber) > 1;
+}
+
+function hasSheriffVictoryBlock(room) {
+    return room.players.some(player => player.isAlive && player.role === 'Şerif');
+}
+
 function buildMixerChatDeliveries(players, sender, text, alias) {
     return players.map(player => ({
         playerId: player.id,
@@ -182,7 +231,7 @@ function getAstralSources(room, actor) {
         return Object.values(nightActions || {}).some(action =>
         action.actionType === 'NECROMANCER' && action.role === roleName);
     }
-const isHainKoyluPlayer = player => Boolean(player && player.isHain && !ALL_HAIN_ROLES.includes(player.role));
+const isHainKoyluPlayer = player => Boolean(player && player.isHain && !player.isCult && player.role !== ARAYA_SIZAN_ROLE && !ALL_HAIN_ROLES.includes(player.role));
 const getDeadRoleLabel = player => isHainKoyluPlayer(player) ? `Hain ${player.role}` : player.role;
 const getPreviousGameRoles = room => room.players.map(player => ({
     username: player.username,
@@ -264,6 +313,9 @@ function createBotPlayer(index) {
         loverProtectUsed: false,
         allyTargetId: null,
             allyProtectUses: 0,
+            isCult: false,
+            isCultConverted: false,
+            hasCultGun: false,
             isSick: false,
                     carrierRoleOptions: [],
                     astralRoleLastUsedDay: {}
@@ -302,6 +354,23 @@ function assignCategoryRoles(room, shuffledPlayers, startIndex, categoryRoles, r
         player.isHain = ALL_HAIN_ROLES.includes(roleName);
         player.isAlive = true;
         player.ammo = roleName === 'Vigilante' ? 3 : 0;
+        usedRoles.add(roleName);
+    });
+
+    return startIndex + selectedRoles.length;
+}
+
+function assignCultRoles(room, shuffledPlayers, startIndex, requestedCount, usedRoles) {
+    const availablePlayers = Math.max(0, shuffledPlayers.length - startIndex);
+    const count = Math.min(Math.max(0, parseInt(requestedCount) || 0), roleNames(ROLE_CATEGORIES.cult).length, availablePlayers);
+    const selectedRoles = count > 0 ? [CULT_LEADER_ROLE, ...(count > 1 ? [ARAYA_SIZAN_ROLE] : [])] : [];
+
+    selectedRoles.forEach((roleName, offset) => {
+        const player = room.players.find(candidate => candidate.id === shuffledPlayers[startIndex + offset].id);
+        if (!player || usedRoles.has(roleName)) return;
+        player.role = roleName;
+        player.isHain = roleName === ARAYA_SIZAN_ROLE;
+        player.isAlive = true;
         usedRoles.add(roleName);
     });
 
@@ -421,7 +490,7 @@ function assignGuns(room) {
 
 function getUnusedRoleOptions(room) {
     const usedRoles = new Set(room.players.map(player => player.role).filter(Boolean));
-    return CONFIGURABLE_ROLE_NAMES.filter(roleName => roleName !== CARRIER_ROLE && !usedRoles.has(roleName));
+    return CONFIGURABLE_ROLE_NAMES.filter(roleName => roleName !== CARRIER_ROLE && !CULT_ROLE_NAMES.includes(roleName) && !usedRoles.has(roleName));
 }
 
 function spreadSickness(room) {
@@ -503,6 +572,7 @@ function sendGameState(roomCode) {
                 role: p.roleRevealed && p.role ? p.role : ((!p.isAlive && p.role && !p.roleHidden) ? getDeadRoleLabel(p) : null),
                 roleRevealed: Boolean(p.roleRevealed),
                 isAllyTraitor: isAllyTraitor,
+                isCultAlly: isCultPlayer(player) && isCultPlayer(p) && p.id !== player.id,
                 isAllyTarget: player.role === 'Müttefik' && player.allyTargetId === p.id,
                 isRevealed: p.isRevealed,
                 isDoused: player.role === 'Kundakçı' && p.isDoused,
@@ -546,7 +616,10 @@ function sendGameState(roomCode) {
             carrierRoleOptions: player.role === CARRIER_ROLE ? player.carrierRoleOptions : [],
             mixerTargetId: player.role === MIXER_HAIN_ROLE ? player.mixerTargetId : null,
             sheriffShotsUsed: player.sheriffShotsUsed || 0,
-            sheriffLastShotDay: player.sheriffLastShotDay || 0
+            sheriffLastShotDay: player.sheriffLastShotDay || 0,
+            isCultMember: isCultPlayer(player),
+            hasCultGun: Boolean(player.hasCultGun),
+            cultActionMode: getCultActionMode(player, room.dayNumber)
         });
     });
 }
@@ -583,6 +656,7 @@ io.on('connection', (socket) => {
                 korumaKoylusuCount: 0,
                 silahliKoyluCount: 0,
                 arastirmaciKoyluCount: 0,
+                tarikatCount: 0,
                 silahliHainCount: 1,
                 destekciHainCount: 0,
                 hainKoyluCount: 0,
@@ -623,6 +697,9 @@ io.on('connection', (socket) => {
                 loverProtectUsed: false,
                 allyTargetId: null,
                     allyProtectUses: 0,
+                        isCult: false,
+                        isCultConverted: false,
+                        hasCultGun: false,
                     isSick: false,
                     carrierRoleOptions: [],
                     sheriffShotsUsed: 0,
@@ -668,6 +745,9 @@ io.on('connection', (socket) => {
             loverProtectUsed: false,
             allyTargetId: null,
                 allyProtectUses: 0,
+                isCult: false,
+                isCultConverted: false,
+                hasCultGun: false,
                 isSick: false,
                 carrierRoleOptions: [],
                 astralRoleLastUsedDay: {},
@@ -736,6 +816,9 @@ io.on('connection', (socket) => {
             p.loverProtectUsed = false;
             p.allyTargetId = null;
             p.allyProtectUses = 0;
+            p.isCult = false;
+            p.isCultConverted = false;
+            p.hasCultGun = false;
             p.isSick = false;
             p.carrierRoleOptions = [];
             p.ninjaUsed = false;
@@ -773,6 +856,7 @@ io.on('connection', (socket) => {
         idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.town['Koruma Köylüleri'], cfg.korumaKoylusuCount, usedRoles);
         idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.town['Silahlı Köylüler'], cfg.silahliKoyluCount, usedRoles);
         idx = assignCategoryRoles(room, shuffled, idx, ROLE_CATEGORIES.town['Araştırmacı Köylüler'], cfg.arastirmaciKoyluCount, usedRoles);
+        idx = assignCultRoles(room, shuffled, idx, cfg.tarikatCount, usedRoles);
         idx = assignHainKoyluRoles(room, shuffled, idx, cfg.hainKoyluCount, usedRoles);
         idx = assignRandomRolePool(room, shuffled, idx, buildRandomRolePool('town'), cfg.randomTownCount, usedRoles);
         idx = assignRandomRolePool(room, shuffled, idx, buildRandomRolePool('hain'), cfg.randomHainCount, usedRoles);
@@ -797,8 +881,13 @@ io.on('connection', (socket) => {
             player.sheriffShotsUsed = 0;
             player.sheriffLastShotDay = 0;
             player.roleRevealed = false;
+            player.isCult = CULT_ROLE_NAMES.includes(player.role);
+            player.isCultConverted = false;
+            player.hasCultGun = false;
         });
 
+        const cultLeader = room.players.find(player => player.role === CULT_LEADER_ROLE && player.isAlive);
+        if (cultLeader) cultLeader.hasCultGun = true;
         assignLovers(room, cfg.asikCount);
         assignGuns(room);
 
@@ -837,6 +926,9 @@ io.on('connection', (socket) => {
 
         const actor = room.players.find(player => player.id === socket.id);
         if (!actor || !actor.isAlive || actor.role !== 'Şerif') return;
+        if (!canSheriffShootOnDay(room.dayNumber)) {
+            return socket.emit('errorMsg', 'Şerif ilk gün ateş edemez!');
+        }
         if ((actor.sheriffShotsUsed || 0) >= 2) {
             return socket.emit('errorMsg', 'Şerif olarak toplam 2 ateş hakkını kullandın!');
         }
@@ -939,6 +1031,8 @@ io.on('connection', (socket) => {
 
         actor.role = stolenRole;
         actor.isHain = Boolean(target.isHain);
+        actor.isCult = Boolean(actor.isCult || target.isCult);
+        actor.isCultConverted = Boolean(actor.isCultConverted || target.isCultConverted);
         if (stolenRole === 'Müttefik') {
             actor.allyTargetId = target.allyTargetId;
             actor.allyProtectUses = target.allyProtectUses;
@@ -1073,6 +1167,15 @@ io.on('connection', (socket) => {
         }
 
         if (room.phase === 'NIGHT') {
+            if (text.startsWith('/tarikat ')) {
+                if (!sender.isCult) return socket.emit('errorMsg', 'Tarikat sohbetine yalnızca tarikat üyeleri erişebilir!');
+                const cultText = text.substring(9).trim();
+                if (!cultText) return;
+                room.players.filter(player => player.isAlive && isCultPlayer(player)).forEach(player => {
+                    io.to(player.id).emit('chatMessage', { sender: sender.username, text: cultText, type: 'cult' });
+                });
+                return;
+            }
             if (sender.isLover && text.startsWith('/aşıklar ')) {
                 const loverText = text.substring(9).trim();
                 if (!loverText) return;
@@ -1093,6 +1196,14 @@ io.on('connection', (socket) => {
                 const hainText = text.substring(9).trim();
                 if (!hainText) return;
                 room.players.filter(p => p.isAlive && isHainPlayer(p) && p.role !== LOST_HAIN_ROLE).forEach(p => io.to(p.id).emit('chatMessage', { sender: sender.username, text: hainText, type: 'hain' }));
+                return;
+            }
+            if (sender.role === ARAYA_SIZAN_ROLE && text.startsWith('/hainler ')) {
+                const hainText = text.substring(9).trim();
+                if (!hainText) return;
+                room.players.filter(player => player.isAlive && isHainPlayer(player) && player.role !== LOST_HAIN_ROLE).forEach(player => {
+                    io.to(player.id).emit('chatMessage', { sender: sender.username, text: hainText, type: 'hain' });
+                });
                 return;
             }
             if (sender.role === 'Duyucu Hain' && text.startsWith('/ölüler ')) {
@@ -1160,6 +1271,9 @@ io.on('connection', (socket) => {
 
         const actor = room.players.find(p => p.id === socket.id);
         if (actor && (actor.isAlive || actor.role === 'Melek' || actor.role === 'Müttefik')) {
+            if (actor.hasCultGun) {
+                return socket.emit('errorMsg', 'Tarikat silahı sende olduğu için normal gece rolünü kullanamazsın!');
+            }
             if (!actor.isAlive && actor.role === 'Müttefik' && actionType !== 'ALLY_PROTECT') {
                 return socket.emit('errorMsg', 'Ölü Müttefik yalnızca müttefikini koruyabilir!');
             }
@@ -1263,11 +1377,34 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('cultAction', ({ roomCode, targetId }) => {
+        const code = (roomCode || socket.roomCode || '').trim().toUpperCase();
+        const room = rooms[code];
+        const actor = room && room.players.find(player => player.id === socket.id);
+        if (!room || room.phase !== 'NIGHT' || !actor || !actor.isAlive) return;
+
+        const actionMode = getCultActionMode(actor, room.dayNumber);
+        if (!actionMode) return socket.emit('errorMsg', 'Bu gece tarikat silahını kullanamazsın!');
+        const target = room.players.find(player => player.id === targetId && player.isAlive && player.id !== actor.id);
+        if (!target) return socket.emit('errorMsg', 'Başka bir yaşayan oyuncuyu seçmelisin!');
+        if (actionMode === 'KILL' && isCultPlayer(target)) {
+            return socket.emit('errorMsg', 'Tarikat üyelerini hedef alamazsın!');
+        }
+
+        room.nightActions[socket.id] = {
+            role: actor.role,
+            targetId,
+            actionType: actionMode === 'CONVERT' ? 'CULT_CONVERT' : 'CULT_ATTACK'
+        };
+        socket.emit('actionConfirmed', { targetId, targetName: target.username });
+    });
+
     socket.on('wizardAction', ({ roomCode, powerRole, targetId }) => {
         const code = (roomCode || socket.roomCode || '').trim().toUpperCase();
         const room = rooms[code];
         const actor = room && room.players.find(p => p.id === socket.id);
         if (!room || room.phase !== 'NIGHT' || !actor || !actor.isAlive || actor.role !== 'Büyücü Hain') return;
+        if (actor.hasCultGun) return socket.emit('errorMsg', 'Tarikat silahı sende olduğu için normal gece rolünü kullanamazsın!');
         if (actor.hasGun) return socket.emit('errorMsg', 'Silah sende; bu gece yalnız saldırı yapabilirsin!');
         if (!powerRole || !targetId) return socket.emit('errorMsg', 'Önce kontrol edilecek kişiyi ve hedefi seçin!');
         const controlled = room.players.find(p => p.id === powerRole && p.isAlive);
@@ -1291,6 +1428,7 @@ io.on('connection', (socket) => {
         const room = rooms[code];
         const actor = room && room.players.find(p => p.id === socket.id);
         if (!room || room.phase !== 'NIGHT' || !actor || !actor.isAlive || actor.role !== 'Necromancer') return;
+        if (actor.hasCultGun) return socket.emit('errorMsg', 'Tarikat silahı sende olduğu için normal gece rolünü kullanamazsın!');
         if (actor.hasGun) return socket.emit('errorMsg', 'Silah sende; bu gece yalnız saldırı yapabilirsin!');
 
         const source = room.players.find(player => player.id === sourceId);
@@ -1345,6 +1483,7 @@ io.on('connection', (socket) => {
         const room = rooms[code];
         const actor = room && room.players.find(player => player.id === socket.id);
         if (!room || room.phase !== 'NIGHT' || !actor || !actor.isAlive || actor.role !== 'Astral') return;
+        if (actor.hasCultGun) return socket.emit('errorMsg', 'Tarikat silahı sende olduğu için normal gece rolünü kullanamazsın!');
 
         const source = room.players.find(player => player.id === sourceId);
         const target = room.players.find(player => player.id === targetId && player.isAlive);
@@ -1825,6 +1964,7 @@ function calculateNightResult(roomCode) {
     let shadowTarget = null, shadowActor = null;
     let kahinTarget = null, kahinActor = null;
     let detectiveTarget = null, detectiveActor = null, detectiveCategory = null;
+    let cultTarget = null, cultActor = null, cultActionType = null;
     let ninjaTarget = null, ninjaActor = null;
     const trapTargets = new Set();
     const trapActors = new Map();
@@ -1897,6 +2037,14 @@ function calculateNightResult(roomCode) {
     Object.entries(actions).forEach(([actorId, act]) => {
         const actor = room.players.find(p => p.id === actorId);
         if (!actor || (!actor.isAlive && actor.role !== 'Melek' && actor.role !== 'Müttefik') || act.blockedByTrap) return;
+
+        if (act.actionType === 'CULT_ATTACK' || act.actionType === 'CULT_CONVERT') {
+            cultTarget = act.targetId;
+            cultActor = actor;
+            cultActionType = act.actionType;
+            if (act.actionType === 'CULT_ATTACK') killPerformerIds.add(actorId);
+            return;
+        }
 
         if (actor.isLover && act.actionType === 'LOVER_PROTECT') {
             if (room.loverShieldUsed) return;
@@ -2177,7 +2325,39 @@ function calculateNightResult(roomCode) {
     if (skTarget) processAttack(skActor, skTarget, 'Seri Katil', 'Seri Katil');
     if (hainActor && hainTarget) processAttack(hainActor, hainTarget, actions[hainActor.id]?.role === 'Gizleyici' ? 'Gizleyici' : 'Hainler', actions[hainActor.id]?.role || hainActor.role);
     if (lostHainActor && lostHainTarget) processAttack(lostHainActor, lostHainTarget, LOST_HAIN_ROLE, LOST_HAIN_ROLE);
+    if (cultActor && cultTarget && cultActionType === 'CULT_ATTACK') {
+        processAttack(cultActor, cultTarget, 'Tarikat', 'Tarikat');
+        io.to(cultActor.id).emit('chatMessage', {
+            sender: '[TARİKAT]',
+            text: `Hedefine saldırdın: ${room.players.find(player => player.id === cultTarget)?.username || 'hedef'}.`,
+            type: 'cult'
+        });
+    }
     if (vigActor && vigTarget) processAttack(vigActor, vigTarget, 'Vigilante', 'Vigilante');
+
+    if (cultActor && cultActionType === 'CULT_CONVERT') {
+        const target = room.players.find(player => player.id === cultTarget && player.isAlive);
+        if (cultActor.isAlive && target && isCultConversionTarget(target)) {
+            target.isCult = true;
+            target.isCultConverted = true;
+            io.to(target.id).emit('chatMessage', {
+                sender: '[TARİKAT]',
+                text: 'Tarikata katıldın; tarikat sohbetine erişebilirsin.',
+                type: 'cult'
+            });
+            io.to(cultActor.id).emit('chatMessage', {
+                sender: '[TARİKAT LİDERİ]',
+                text: `${target.username} tarikatına katıldı.`,
+                type: 'cult'
+            });
+        } else {
+            io.to(cultActor.id).emit('chatMessage', {
+                sender: '[TARİKAT LİDERİ]',
+                text: 'Bu gece hedefini tarikata dönüştüremedin.',
+                type: 'cult'
+            });
+        }
+    }
 
     // --- DÜZENBAZ KÖYLÜ (DECEIVER) — SURVIVAL OUTCOME ---
     // The Deceiver only pays with his life when the specific action that got reflected
@@ -2299,6 +2479,14 @@ function checkGunPass(room, deadPlayer) {
         deadPlayer.hasGun = false;
         assignGuns(room);
     }
+    if (deadPlayer.hasCultGun) {
+        deadPlayer.hasCultGun = false;
+        const recipient = getCultWeaponRecipient(room.players, deadPlayer.id);
+        if (recipient) {
+            recipient.hasCultGun = true;
+            io.to(recipient.id).emit('systemAnnounce', '[TARİKAT] Tarikat silahı sana geçti.');
+        }
+    }
 }
 
 function propagateLoverDeaths(room, killedList = null) {
@@ -2384,16 +2572,17 @@ function checkWinCondition(roomCode) {
     if (!room) return false;
 
     const alivePlayers = room.players.filter(p => p.isAlive);
-    const aliveHain = alivePlayers.filter(p => p.role && ALL_HAIN_ROLES.includes(p.role) && p.role !== LOST_HAIN_ROLE);
-    const aliveLostHain = alivePlayers.filter(p => p.role === LOST_HAIN_ROLE);
+    const aliveHain = alivePlayers.filter(p => !isCultPlayer(p) && p.role && ALL_HAIN_ROLES.includes(p.role) && ![LOST_HAIN_ROLE, ARAYA_SIZAN_ROLE].includes(p.role));
+    const aliveLostHain = alivePlayers.filter(p => !isCultPlayer(p) && p.role === LOST_HAIN_ROLE);
     const aliveHainKoylu = alivePlayers.filter(isHainKoyluPlayer);
     const aliveHainTeam = alivePlayers.filter(isCountedHain);
     const aliveSK = alivePlayers.filter(p => p.role === 'Seri Katil');
     const aliveKundakci = alivePlayers.filter(p => p.role === 'Kundakçı');
+    const aliveCult = alivePlayers.filter(isCultPlayer);
     const aliveBaskan = alivePlayers.filter(p => p.role === 'Başkan');
 
-    const baskanBlocksWin = aliveBaskan.length > 0;
-    const aliveEvils = [...aliveHain, ...aliveHainKoylu, ...aliveLostHain, ...aliveSK, ...aliveKundakci];
+    const townLeaderBlocksEvilWin = aliveBaskan.length > 0 || hasSheriffVictoryBlock(room);
+    const aliveEvils = [...aliveHain, ...aliveHainKoylu, ...aliveLostHain, ...aliveSK, ...aliveKundakci, ...aliveCult];
 
     if (aliveLostHain.length === 1 && alivePlayers.length === 1) {
         clearInterval(room.timer);
@@ -2428,6 +2617,13 @@ function checkWinCondition(roomCode) {
         return true;
     }
 
+    if (hasCultVictory(room, alivePlayers)) {
+        clearInterval(room.timer);
+        sendGameState(roomCode);
+        emitGameOver(roomCode, withAdditionalWinners({ winner: 'TARİKAT', msg: '🕯️ Tarikat diğer tehditleri ortadan kaldırıp çoğunluğu elde etti ve kazandı!' }, room, alivePlayers));
+        return true;
+    }
+
     // 2. Kasaba Zaferi (Tüm tehditler yok edildi)
     if (aliveEvils.length === 0) {
         clearInterval(room.timer);
@@ -2437,7 +2633,7 @@ function checkWinCondition(roomCode) {
     }
 
     // 3. Kundakçı Zaferi
-    if (aliveKundakci.length > 0 && aliveLostHain.length === 0 && aliveHain.length === 0 && aliveSK.length === 0 && alivePlayers.length <= 2) {
+    if (aliveKundakci.length > 0 && aliveLostHain.length === 0 && aliveHain.length === 0 && aliveSK.length === 0 && aliveCult.length === 0 && alivePlayers.length <= 2) {
         clearInterval(room.timer);
         sendGameState(roomCode);
         emitGameOver(roomCode, { winner: 'KUNDAKÇI', msg: '🔥 Kundakçı köyü küle çevirdi ve tek başına kazandı!' });
@@ -2445,9 +2641,9 @@ function checkWinCondition(roomCode) {
     }
 
     // 4. Seri Katil Zaferi
-    if (aliveSK.length > 0 && aliveLostHain.length === 0 && aliveHain.length === 0 && aliveKundakci.length === 0) {
+    if (aliveSK.length > 0 && aliveLostHain.length === 0 && aliveHain.length === 0 && aliveKundakci.length === 0 && aliveCult.length === 0) {
         const othersCount = alivePlayers.length - aliveSK.length;
-        if (aliveSK.length >= othersCount && !baskanBlocksWin) {
+        if (aliveSK.length >= othersCount && !townLeaderBlocksEvilWin) {
             clearInterval(room.timer);
             sendGameState(roomCode);
             emitGameOver(roomCode, { winner: 'SERİ KATİL', msg: '🔪 Seri Katil köydeki herkesi avladı ve kazandı!' });
@@ -2457,8 +2653,8 @@ function checkWinCondition(roomCode) {
 
     // 5. Hainler Zaferi
     const allHainCount = aliveHain.length + aliveHainKoylu.length;
-    if (allHainCount > 0 && aliveSK.length === 0 && aliveKundakci.length === 0) {
-        if (hasHainMajority(allHainCount, alivePlayers.length) && !baskanBlocksWin && !(aliveHainKoylu.length === 1 && aliveHainTeam.length === 1)) {
+    if (allHainCount > 0 && aliveSK.length === 0 && aliveKundakci.length === 0 && aliveCult.length === 0) {
+        if (hasHainMajority(allHainCount, alivePlayers.length) && !townLeaderBlocksEvilWin && !(aliveHainKoylu.length === 1 && aliveHainTeam.length === 1)) {
             clearInterval(room.timer);
             sendGameState(roomCode);
             emitGameOver(roomCode, withAdditionalWinners({ winner: 'HAİNLER', msg: '👹 Hainler kasabada çoğunluğu ele geçirdi ve kazandı!' }, room, alivePlayers));
@@ -2497,6 +2693,14 @@ module.exports = {
     DETECTIVE_CATEGORIES,
     getDetectiveAnswer,
     getSheriffShotOutcome,
+    canSheriffShootOnDay,
+    hasSheriffVictoryBlock,
+    getCultActionMode,
+    isCultConversionTarget,
+    getCultWeaponRecipient,
+    hasCultVictory,
+    assignCultRoles,
+    isHainPlayer,
     buildMixerChatDeliveries,
     canAstralUseRole,
     getAstralSources,
