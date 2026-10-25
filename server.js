@@ -154,12 +154,21 @@ function getDetectiveAnswer(target, category) {
 
 function getSheriffShotOutcome(actor, target) {
     const targetIsArsonist = target.role === 'Kundakçı';
-    const targetIsTownsperson = !isHainPlayer(target) && !NEUTRAL_ROLES.includes(target.role);
+    const targetIsTownsperson = !isHainPlayer(target) && !isCultPlayer(target) && !NEUTRAL_ROLES.includes(target.role);
     return {
         targetDies: !targetIsArsonist,
         revealTargetRole: targetIsArsonist,
-        sheriffDies: !targetIsArsonist && targetIsTownsperson && !isHainPlayer(actor)
+        sheriffDies: !targetIsArsonist && targetIsTownsperson && !isHainPlayer(actor) && !isCultPlayer(actor)
     };
+}
+
+function canBeLover(player) {
+    return Boolean(player && !CULT_ROLE_NAMES.includes(player.role) && !NEUTRAL_ROLES.includes(player.role));
+}
+
+function shouldVigilanteDieAfterShot(attacker, victim) {
+    return Boolean(attacker && victim && !isCultPlayer(attacker) && !attacker.isHain &&
+        !isHainPlayer(victim) && !isCultPlayer(victim) && !NEUTRAL_ROLES.includes(victim.role));
 }
 
 function getCultActionMode(player, nightNumber) {
@@ -450,7 +459,7 @@ function assignLovers(room, requestedPairs) {
     const pairCount = Math.max(0, parseInt(requestedPairs) || 0);
     for (let pairIndex = 0; pairIndex < pairCount; pairIndex++) {
         const available = room.players.filter(player =>
-            player.isAlive && !player.isLover && !NEUTRAL_ROLES.includes(player.role)
+            player.isAlive && !player.isLover && canBeLover(player)
         );
         const possiblePairs = [];
         for (let firstIndex = 0; firstIndex < available.length; firstIndex++) {
@@ -2314,7 +2323,7 @@ function calculateNightResult(roomCode) {
             killedList.push({ player: victim, killer: killerName, hiddenRole: hideRole });
             checkGunPass(room, victim);
 
-            if (killerName === 'Vigilante' && !attacker.isHain && !isHainPlayer(victim) && !NEUTRAL_ROLES.includes(victim.role)) {
+            if (killerName === 'Vigilante' && shouldVigilanteDieAfterShot(attacker, victim)) {
                 attacker.isAlive = false;
                 killedList.push({ player: attacker, killer: 'Vicdan Azabı (İntihar)', hiddenRole: false });
                 checkGunPass(room, attacker);
@@ -2701,6 +2710,8 @@ module.exports = {
     hasCultVictory,
     assignCultRoles,
     isHainPlayer,
+    canBeLover,
+    shouldVigilanteDieAfterShot,
     buildMixerChatDeliveries,
     canAstralUseRole,
     getAstralSources,
