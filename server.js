@@ -197,13 +197,19 @@ function getCultWeaponRecipient(players, deadPlayerId) {
 }
 
 function getCleanedTargetIds(players, nightActions) {
-    return new Set(Object.entries(nightActions || {})
-        .filter(([actorId, action]) => {
+    const cleanedTargetIds = new Set(players.filter(player => player.isCleaned).map(player => player.id));
+    Object.entries(nightActions || {}).forEach(([actorId, action]) => {
             const cleaner = players.find(player => player.id === actorId);
-            return cleaner && cleaner.isAlive && cleaner.role === CLEANER_ROLE && !cleaner.hasGun &&
-                action.actionType === 'CLEAN' && action.targetId && !action.blockedByTrap;
-        })
-        .map(([, action]) => action.targetId));
+            if (cleaner && cleaner.isAlive && cleaner.role === CLEANER_ROLE && !cleaner.hasGun &&
+                action.actionType === 'CLEAN' && action.targetId && !action.blockedByTrap) {
+                cleanedTargetIds.add(action.targetId);
+            }
+        });
+    return cleanedTargetIds;
+}
+
+function canSeeCleanedMarker(viewer, target) {
+    return Boolean(viewer && viewer.role === CLEANER_ROLE && target && target.isCleaned);
 }
 
     function canCleanerCleanTarget(cleaner, target) {
@@ -335,6 +341,7 @@ function createBotPlayer(index) {
         jesterShield: 1,
         isRevealed: false,
         isDoused: false,
+        isCleaned: false,
         hasStolen: false,
         hasAssassinated: false,
         isHain: false,
@@ -604,13 +611,14 @@ function sendGameState(roomCode) {
                 id: p.id,
                 username: p.username,
                 isAlive: p.isAlive,
-                role: p.roleRevealed && p.role ? p.role : ((!p.isAlive && p.role && !p.roleHidden) ? getDeadRoleLabel(p) : null),
+                role: p.roleRevealed && p.role ? p.role : ((!p.isAlive && p.role && !p.roleHidden && !p.isCleaned) ? getDeadRoleLabel(p) : null),
                 roleRevealed: Boolean(p.roleRevealed),
                 isAllyTraitor: isAllyTraitor,
                 isCultAlly: isCultPlayer(player) && isCultPlayer(p) && p.id !== player.id,
                 isAllyTarget: player.role === 'Müttefik' && player.allyTargetId === p.id,
                 isRevealed: p.isRevealed,
                 isDoused: player.role === 'Kundakçı' && p.isDoused,
+                isCleaned: canSeeCleanedMarker(player, p),
                 isSick: player.role === CARRIER_ROLE && p.isSick,
                     shadowRole: getVisibleShadowRole(player, p)
             };
@@ -719,6 +727,7 @@ io.on('connection', (socket) => {
             jesterShield: 1,
             isRevealed: false,
             isDoused: false,
+            isCleaned: false,
             hasStolen: false,
             hasAssassinated: false,
             isHain: false,
@@ -767,6 +776,7 @@ io.on('connection', (socket) => {
             jesterShield: 1,
             isRevealed: false,
             isDoused: false,
+            isCleaned: false,
             hasStolen: false,
             hasAssassinated: false,
             isHain: false,
@@ -837,6 +847,7 @@ io.on('connection', (socket) => {
             p.jesterShield = 1;
             p.isRevealed = false;
             p.isDoused = false;
+            p.isCleaned = false;
             p.hasStolen = false;
             p.hasAssassinated = false;
             p.isHain = false;
@@ -916,6 +927,7 @@ io.on('connection', (socket) => {
             player.sheriffShotsUsed = 0;
             player.sheriffLastShotDay = 0;
             player.roleRevealed = false;
+            player.isCleaned = false;
             player.isCult = CULT_ROLE_NAMES.includes(player.role);
             player.isCultConverted = false;
             player.hasCultGun = false;
@@ -980,7 +992,7 @@ io.on('connection', (socket) => {
         const outcome = getSheriffShotOutcome(actor, target);
         if (outcome.targetDies) {
             target.isAlive = false;
-            target.roleHidden = false;
+            target.roleHidden = Boolean(target.isCleaned);
             checkGunPass(room, target);
         }
         if (outcome.revealTargetRole) target.roleRevealed = true;
@@ -1121,8 +1133,10 @@ io.on('connection', (socket) => {
             io.to(code).emit('systemAnnounce', `🎯 [AVCI] ${hunter.username}, Kundakçıya ateş etti ancak Kundakçı ölmedi!`);
         } else {
             target.isAlive = false;
+            target.roleHidden = Boolean(target.isCleaned);
             checkGunPass(room, target);
-            io.to(code).emit('systemAnnounce', `🎯 [AVCI] ${hunter.username}, ${target.username} kişisine ateş etti! Hedefin rolü: ${target.role}`);
+            const roleLabel = target.roleHidden ? 'GİZLİ' : target.role;
+            io.to(code).emit('systemAnnounce', `🎯 [AVCI] ${hunter.username}, ${target.username} kişisine ateş etti! Hedefin rolü: ${roleLabel}`);
         }
         hunter.hunterStand = false;
         room.hunterStand = null;
@@ -1894,7 +1908,9 @@ function evaluateJudgmentResult(roomCode) {
     if (guiltyVotes > innocentVotes) {
         if (defendant) {
             defendant.isAlive = false;
-            io.to(roomCode).emit('systemAnnounce', `[SİSTEM] ⚖️ Duruşma Sonucu: ${guiltyVotes} Suçlu / ${innocentVotes} Suçsuz. ${defendant.username} İDAM EDİLDİ! Rolü: ${defendant.role}`);
+            defendant.roleHidden = Boolean(defendant.isCleaned);
+            const roleLabel = defendant.roleHidden ? 'GİZLİ' : defendant.role;
+            io.to(roomCode).emit('systemAnnounce', `[SİSTEM] ⚖️ Duruşma Sonucu: ${guiltyVotes} Suçlu / ${innocentVotes} Suçsuz. ${defendant.username} İDAM EDİLDİ! Rolü: ${roleLabel}`);
             
             checkGunPass(room, defendant);
             propagateLoverDeaths(room);
@@ -2095,6 +2111,10 @@ function calculateNightResult(roomCode) {
     }
 
     const cleanedTargetIds = getCleanedTargetIds(room.players, actions);
+    cleanedTargetIds.forEach(targetId => {
+        const target = room.players.find(player => player.id === targetId);
+        if (target) target.isCleaned = true;
+    });
 
     Object.entries(actions).forEach(([actorId, act]) => {
         const actor = room.players.find(p => p.id === actorId);
@@ -2454,13 +2474,6 @@ function calculateNightResult(roomCode) {
         const target = room.players.find(player => player.id === targetId);
         const cleanerId = Object.entries(actions).find(([, action]) => action.actionType === 'CLEAN' && action.targetId === targetId)?.[0];
         const cleaner = room.players.find(player => player.id === cleanerId);
-        if (target) {
-            io.to(target.id).emit('chatMessage', {
-                sender: '[SİSTEM]',
-                text: 'Evin bu gece Temizlikçi tarafından temizlendi.',
-                type: 'green'
-            });
-        }
         if (cleaner && cleaner.isAlive && target) {
             emitRoleActionMessage(cleaner, `${target.username} adlı kişinin evini temizledin.`);
         }
@@ -2784,6 +2797,7 @@ module.exports = {
     isCultConversionTarget,
     getCultWeaponRecipient,
     getCleanedTargetIds,
+    canSeeCleanedMarker,
     hideCleanedDeathRoles,
     canCleanerCleanTarget,
     hasCultVictory,

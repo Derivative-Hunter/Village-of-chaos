@@ -1547,6 +1547,7 @@
             const allyTargetTag = p.isAllyTarget ? `<span style="font-size:10px; color:#22c55e; font-weight:bold;">[🤝 MÜTTEFİKİN]</span>` : '';
             const baskanTag = p.isRevealed ? `<span style="font-size:10px; color:#eab308; font-weight:bold;">[👑 BAŞKAN]</span>` : '';
             const dousedTag = p.isDoused ? `<span style="font-size:10px; color:#f97316; font-weight:bold;">[🔥 EVİ YAĞLANDI]</span>` : '';
+            const cleanedTag = p.isCleaned ? `<span style="font-size:10px; color:#86efac; font-weight:bold;">[TEMİZLENMİŞ]</span>` : '';
             const sickTag = p.isSick ? `<span style="font-size:10px; color:#a855f7; font-weight:bold;">[🦠 HASTALIKLI]</span>` : '';
 
             grid.innerHTML += `
@@ -1560,6 +1561,7 @@
                         ${allyTargetTag}
                         ${baskanTag}
                         ${dousedTag}
+                        ${cleanedTag}
                         ${sickTag}
                         ${roleTagHtml}
                     </div>
