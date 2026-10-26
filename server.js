@@ -23,7 +23,7 @@ const ROLE_CATEGORIES = {
     },
     hain: {
         'Silahlı Hainler': ['Gizleyici', 'Ninja Hain', 'Kayıp Hain'],
-        'Destekçi Hainler': ['Suikastçi', 'Karıştırıcı Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain'],
+        'Destekçi Hainler': ['Suikastçi', 'Karıştırıcı Hain', 'Gölge Ajanı', 'Temizlikçi Hain', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain'],
         'Hain Köylü': ['Hain Köylü']
     },
     neutral: {
@@ -36,10 +36,11 @@ const ROLE_CATEGORIES = {
 };
 
 const MIXER_HAIN_ROLE = 'Karıştırıcı Hain';
+const CLEANER_ROLE = 'Temizlikçi Hain';
 const ARAYA_SIZAN_ROLE = 'Araya Sızan';
 const CULT_LEADER_ROLE = 'Tarikat Lideri';
 const CULT_ROLE_NAMES = Object.values(ROLE_CATEGORIES.cult).flat();
-const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain', ARAYA_SIZAN_ROLE];
+const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Gölge Ajanı', CLEANER_ROLE, 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain', ARAYA_SIZAN_ROLE];
 const NECROMANCER_SOURCE_ROLES = ['Doktor', 'Uyutucu', 'Tuzakçı Köylü', 'Vigilante', 'Düzenbaz Köylü', 'Ayakçı', 'Gözcü', 'Kahin Köylü', 'Ninja Hain', 'Kayıp Hain', 'Gölge Ajanı', 'Susturucu', 'Seri Katil'];
 const ASTRAL_SOURCE_ROLES = ['Doktor', 'Uyutucu', 'Tuzakçı Köylü', 'Vigilante', 'Düzenbaz Köylü', 'Ayakçı', 'Gözcü', 'Kahin Köylü'];
 const LOST_HAIN_ROLE = 'Kayıp Hain';
@@ -180,7 +181,7 @@ function getCultActionMode(player, nightNumber) {
 
 function isCultConversionTarget(target) {
     if (!target || isCultPlayer(target) || isHainPlayer(target)) return false;
-    return TOWN_ROLES.includes(target.role) || ['Hırsız', CARRIER_ROLE, 'Müttefik'].includes(target.role);
+    return TOWN_ROLES.includes(target.role);
 }
 
 function getCultWeaponRecipient(players, deadPlayerId) {
@@ -193,6 +194,26 @@ function getCultWeaponRecipient(players, deadPlayerId) {
     return players.find(player =>
         player.id !== deadPlayerId && player.isAlive && player.role === ARAYA_SIZAN_ROLE
     ) || null;
+}
+
+function getCleanedTargetIds(players, nightActions) {
+    return new Set(Object.entries(nightActions || {})
+        .filter(([actorId, action]) => {
+            const cleaner = players.find(player => player.id === actorId);
+            return cleaner && cleaner.isAlive && cleaner.role === CLEANER_ROLE && !cleaner.hasGun &&
+                action.actionType === 'CLEAN' && action.targetId && !action.blockedByTrap;
+        })
+        .map(([, action]) => action.targetId));
+}
+
+function hideCleanedDeathRoles(players, killedList, cleanedTargetIds) {
+    cleanedTargetIds.forEach(targetId => {
+        const target = players.find(player => player.id === targetId);
+        if (!target || target.isAlive) return;
+        target.roleHidden = true;
+        const death = killedList.find(entry => entry.player.id === targetId);
+        if (death) death.hiddenRole = true;
+    });
 }
 
 function hasCultVictory(room, alivePlayers = room.players.filter(player => player.isAlive)) {
@@ -486,7 +507,7 @@ function assignGuns(room) {
     const hains = room.players.filter(p => p.isAlive && ALL_HAIN_ROLES.includes(p.role) && p.role !== LOST_HAIN_ROLE && !isHainKoyluPlayer(p));
     hains.forEach(h => h.hasGun = false);
 
-    const priority = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Duyucu Hain', 'Ninja Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain'];
+    const priority = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Duyucu Hain', 'Ninja Hain', 'Gölge Ajanı', CLEANER_ROLE, 'Susturucu', 'Necromancer', 'Büyücü Hain'];
     for (let roleName of priority) {
         const owners = hains.filter(h => h.role === roleName);
         if (owners.length === 0) continue;
@@ -1305,6 +1326,15 @@ io.on('connection', (socket) => {
                 }
                 if (!target) return socket.emit('errorMsg', 'Dedektif yalnızca başka bir yaşayan oyuncuyu sorgulayabilir!');
             }
+            if (actor.role === CLEANER_ROLE && !actor.hasGun) {
+                const target = room.players.find(player => player.id === targetId && player.isAlive && player.id !== actor.id);
+                if (actionType !== 'CLEAN' || !target) {
+                    return socket.emit('errorMsg', 'Temizlikçi olarak başka bir yaşayan oyuncunun evini temizlemelisin!');
+                }
+            }
+            if (actor.role === CLEANER_ROLE && actor.hasGun && actionType === 'CLEAN') {
+                return socket.emit('errorMsg', 'Silah sende; bu gece yalnız saldırı yapabilirsin!');
+            }
             if (['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Avcı Köylü', 'Şerif'].includes(actor.role)) return;
             if (actor.role === 'Hırsız') return socket.emit('errorMsg', 'Hırsız gece eylemi yapamaz!');
             if (actor.role === 'Necromancer' && !actor.hasGun) {
@@ -2043,6 +2073,8 @@ function calculateNightResult(roomCode) {
         }
     }
 
+    const cleanedTargetIds = getCleanedTargetIds(room.players, actions);
+
     Object.entries(actions).forEach(([actorId, act]) => {
         const actor = room.players.find(p => p.id === actorId);
         if (!actor || (!actor.isAlive && actor.role !== 'Melek' && actor.role !== 'Müttefik') || act.blockedByTrap) return;
@@ -2396,6 +2428,8 @@ function calculateNightResult(roomCode) {
 
     propagateLoverDeaths(room, killedList);
 
+    hideCleanedDeathRoles(room.players, killedList, cleanedTargetIds);
+
     if (killedList.length === 0) {
         io.to(roomCode).emit('systemAnnounce', '[SİSTEM] 🛡️ Bu gece kimse ölmedi.');
     } else {
@@ -2458,13 +2492,17 @@ function calculateNightResult(roomCode) {
 
     if (kahinActor && kahinTarget) {
         const target = room.players.find(p => p.id === kahinTarget);
+        const hiddenVisitors = Object.entries(actions)
+            .filter(([actorId, act]) => act.targetId === kahinTarget && !act.noVisit && actorId !== kahinActor.id && cleanedTargetIds.has(actorId));
         const visitorRoles = Object.entries(actions)
-            .filter(([actorId, act]) => act.targetId === kahinTarget && !act.noVisit && actorId !== kahinActor.id)
+            .filter(([actorId, act]) => act.targetId === kahinTarget && !act.noVisit && actorId !== kahinActor.id && !cleanedTargetIds.has(actorId))
             .map(([actorId, act]) => getActionRole(actorId, act))
             .filter((role, index, roles) => roles.indexOf(role) === index);
         const reportText = visitorRoles.length > 0
             ? `🔮 ${target ? target.username : 'Hedef'} kişisinin evine gelen roller: ${visitorRoles.join(', ')}`
-            : `🔮 ${target ? target.username : 'Hedef'} kişisinin evine bu gece kimse gelmedi.`;
+            : hiddenVisitors.length > 0
+                ? '🔮 Temizlikçi tarafından temizlenen oyuncuların rolleri tespit edilemedi.'
+                : `🔮 ${target ? target.username : 'Hedef'} kişisinin evine bu gece kimse gelmedi.`;
         emitRoleActionMessage(kahinActor, reportText);
         io.to(kahinActor.id).emit('chatMessage', { sender: '[KAHİN KÖYLÜ RAPORU]', text: reportText, type: 'green' });
     }
@@ -2472,8 +2510,9 @@ function calculateNightResult(roomCode) {
     if (detectiveActor && detectiveTarget && Object.hasOwn(DETECTIVE_CATEGORIES, detectiveCategory)) {
         const target = room.players.find(player => player.id === detectiveTarget);
         if (target) {
-            const answer = getDetectiveAnswer(target, detectiveCategory) ? 'EVET' : 'HAYIR';
-            const reportText = `🕵️ Dedektif Raporu: ${target.username} için "${DETECTIVE_CATEGORIES[detectiveCategory]}" sonucu: ${answer}.`;
+            const reportText = cleanedTargetIds.has(detectiveTarget)
+                ? 'Hedefiniz temizlenmiştir.'
+                : `🕵️ Dedektif Raporu: ${target.username} için "${DETECTIVE_CATEGORIES[detectiveCategory]}" sonucu: ${getDetectiveAnswer(target, detectiveCategory) ? 'EVET' : 'HAYIR'}.`;
             emitRoleActionMessage(detectiveActor, reportText);
             io.to(detectiveActor.id).emit('chatMessage', { sender: '[DEDEKTİF RAPORU]', text: reportText, type: 'green' });
         }
@@ -2708,6 +2747,8 @@ module.exports = {
     getCultActionMode,
     isCultConversionTarget,
     getCultWeaponRecipient,
+    getCleanedTargetIds,
+    hideCleanedDeathRoles,
     hasCultVictory,
     assignCultRoles,
     isHainPlayer,
