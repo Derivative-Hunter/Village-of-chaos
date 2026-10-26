@@ -206,6 +206,11 @@ function getCleanedTargetIds(players, nightActions) {
         .map(([, action]) => action.targetId));
 }
 
+    function canCleanerCleanTarget(cleaner, target) {
+        return Boolean(cleaner && cleaner.role === CLEANER_ROLE && cleaner.isAlive && !cleaner.hasGun &&
+        target && target.isAlive && target.id !== cleaner.id);
+    }
+
 function hideCleanedDeathRoles(players, killedList, cleanedTargetIds) {
     cleanedTargetIds.forEach(targetId => {
         const target = players.find(player => player.id === targetId);
@@ -1416,6 +1421,22 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('cleanerAction', ({ roomCode, targetId }) => {
+        const code = (roomCode || socket.roomCode || '').trim().toUpperCase();
+        const room = rooms[code];
+        const cleaner = room && room.players.find(player => player.id === socket.id);
+        if (!room || room.phase !== 'NIGHT' || !cleaner || cleaner.role !== CLEANER_ROLE) return;
+        if (cleaner.hasGun) return socket.emit('errorMsg', 'Silah sende; bu gece yalnız saldırı yapabilirsin!');
+
+        const target = room.players.find(player => player.id === targetId);
+        if (!canCleanerCleanTarget(cleaner, target)) {
+            return socket.emit('errorMsg', 'Temizlenecek hedef artık hayatta değil veya geçerli değil.');
+        }
+
+        room.nightActions[cleaner.id] = { role: cleaner.role, targetId: target.id, actionType: 'CLEAN' };
+        socket.emit('actionConfirmed', { targetId, targetName: target.username });
+    });
+
     socket.on('cultAction', ({ roomCode, targetId }) => {
         const code = (roomCode || socket.roomCode || '').trim().toUpperCase();
         const room = rooms[code];
@@ -2429,6 +2450,21 @@ function calculateNightResult(roomCode) {
     propagateLoverDeaths(room, killedList);
 
     hideCleanedDeathRoles(room.players, killedList, cleanedTargetIds);
+    cleanedTargetIds.forEach(targetId => {
+        const target = room.players.find(player => player.id === targetId);
+        const cleanerId = Object.entries(actions).find(([, action]) => action.actionType === 'CLEAN' && action.targetId === targetId)?.[0];
+        const cleaner = room.players.find(player => player.id === cleanerId);
+        if (target) {
+            io.to(target.id).emit('chatMessage', {
+                sender: '[SİSTEM]',
+                text: 'Evin bu gece Temizlikçi tarafından temizlendi.',
+                type: 'green'
+            });
+        }
+        if (cleaner && cleaner.isAlive && target) {
+            emitRoleActionMessage(cleaner, `${target.username} adlı kişinin evini temizledin.`);
+        }
+    });
 
     if (killedList.length === 0) {
         io.to(roomCode).emit('systemAnnounce', '[SİSTEM] 🛡️ Bu gece kimse ölmedi.');
@@ -2749,6 +2785,7 @@ module.exports = {
     getCultWeaponRecipient,
     getCleanedTargetIds,
     hideCleanedDeathRoles,
+    canCleanerCleanTarget,
     hasCultVictory,
     assignCultRoles,
     isHainPlayer,
