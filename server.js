@@ -1224,6 +1224,14 @@ io.on('connection', (socket) => {
 
         if (!sender.isAlive) {
             if (sender.role === 'Müttefik') return socket.emit('errorMsg', 'Ölü Müttefik yalnızca gece koruma yapabilir.');
+            const hunterStandIsActive = room.phase === 'DAY' &&
+                room.hunterStand?.playerId === sender.id &&
+                !sender.hunterStandUsed &&
+                Date.now() < room.hunterStand.expiresAt;
+            if (hunterStandIsActive) {
+                io.to(code).emit('chatMessage', { sender: sender.username, text, type: 'general' });
+                return;
+            }
             const deads = room.players.filter(p => !p.isAlive);
             deads.forEach(p => io.to(p.id).emit('chatMessage', { sender: sender.username, text, type: 'dead' }));
             
@@ -2394,14 +2402,16 @@ function calculateNightResult(roomCode) {
         const victim = room.players.find(p => p.id === targetId);
         if (!victim || !victim.isAlive) return;
 
-        const canKillKundakci = ['Gizleyici', 'Seri Katil', LOST_HAIN_ROLE, TETIKCI_HAIN_ROLE].includes(effectiveRole);
+        const canKillKundakci = ['Gizleyici', 'Seri Katil', LOST_HAIN_ROLE].includes(effectiveRole) ||
+            (effectiveRole === TETIKCI_HAIN_ROLE && !attacker.hasGun);
         if (hasArsonistProtection(victim) && !canKillKundakci) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
             io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: 'Hedefinizi öldüremediniz.', type: 'green' });
             return;
         }
 
-        if (isMutualIgniteAttackOnArsonist && victim.id === arsoActor.id && effectiveRole !== TETIKCI_HAIN_ROLE) {
+        if (isMutualIgniteAttackOnArsonist && victim.id === arsoActor.id &&
+            !(effectiveRole === TETIKCI_HAIN_ROLE && !attacker.hasGun)) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
             io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: 'Hedefinizi öldüremediniz.', type: 'green' });
             if (attacker.role === 'Gizleyici' || attacker.role === 'Seri Katil') {
