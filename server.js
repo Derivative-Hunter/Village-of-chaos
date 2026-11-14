@@ -22,8 +22,8 @@ const ROLE_CATEGORIES = {
         'Araştırmacı Köylüler': ['Ayakçı', 'Gözcü', 'Medyum', 'Casus', 'Kahin Köylü', 'Astral', 'Dedektif']
     },
     hain: {
-        'Silahlı Hainler': ['Gizleyici', 'Ninja Hain', 'Kayıp Hain'],
-        'Destekçi Hainler': ['Suikastçi', 'Karıştırıcı Hain', 'Gölge Ajanı', 'Temizlikçi Hain', 'Susturucu', 'Tetikçi Hain', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain'],
+        'Silahlı Hainler': ['Gizleyici', 'Ninja Hain', 'Kayıp Hain', 'Tetikçi Hain'],
+        'Destekçi Hainler': ['Suikastçi', 'Karıştırıcı Hain', 'Gölge Ajanı', 'Temizlikçi Hain', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain'],
         'Hain Köylü': ['Hain Köylü']
     },
     neutral: {
