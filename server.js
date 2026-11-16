@@ -22,7 +22,7 @@ const ROLE_CATEGORIES = {
         'Araştırmacı Köylüler': ['Ayakçı', 'Gözcü', 'Medyum', 'Casus', 'Kahin Köylü', 'Astral', 'Dedektif']
     },
     hain: {
-        'Silahlı Hainler': ['Gizleyici', 'Ninja Hain', 'Kayıp Hain'],
+        'Silahlı Hainler': ['Gizleyici', 'Ninja Hain', 'Kayıp Hain', 'Tetikçi Hain'],
         'Destekçi Hainler': ['Suikastçi', 'Karıştırıcı Hain', 'Gölge Ajanı', 'Temizlikçi Hain', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain'],
         'Hain Köylü': ['Hain Köylü']
     },
@@ -40,7 +40,8 @@ const CLEANER_ROLE = 'Temizlikçi Hain';
 const ARAYA_SIZAN_ROLE = 'Araya Sızan';
 const CULT_LEADER_ROLE = 'Tarikat Lideri';
 const CULT_ROLE_NAMES = Object.values(ROLE_CATEGORIES.cult).flat();
-const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Gölge Ajanı', CLEANER_ROLE, 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain', ARAYA_SIZAN_ROLE];
+const TRIGGER_HAIN_ROLE = 'Tetikçi Hain';
+const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Gölge Ajanı', CLEANER_ROLE, 'Susturucu', TRIGGER_HAIN_ROLE, 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain', ARAYA_SIZAN_ROLE];
 const NECROMANCER_SOURCE_ROLES = ['Doktor', 'Uyutucu', 'Tuzakçı Köylü', 'Vigilante', 'Düzenbaz Köylü', 'Ayakçı', 'Gözcü', 'Kahin Köylü', 'Ninja Hain', 'Kayıp Hain', 'Gölge Ajanı', 'Susturucu', 'Seri Katil'];
 const ASTRAL_SOURCE_ROLES = ['Doktor', 'Uyutucu', 'Tuzakçı Köylü', 'Vigilante', 'Düzenbaz Köylü', 'Ayakçı', 'Gözcü', 'Kahin Köylü'];
 const LOST_HAIN_ROLE = 'Kayıp Hain';
@@ -107,6 +108,7 @@ function canRoleUseAttack(roleName, hasGun) {
         'Necromancer',
         'Büyücü Hain',
         'Duyucu Hain',
+        TRIGGER_HAIN_ROLE,
         'Ninja Hain',
         'Kayıp Hain',
         'Seri Katil',
@@ -114,7 +116,7 @@ function canRoleUseAttack(roleName, hasGun) {
     ]);
 
     if (!attackRoles.has(roleName)) return false;
-    if (roleName === 'Duyucu Hain' || roleName === 'Gölge Ajanı' || roleName === 'Susturucu' || roleName === 'Necromancer' || roleName === 'Büyücü Hain' || roleName === MIXER_HAIN_ROLE) {
+    if (roleName === 'Duyucu Hain' || roleName === TRIGGER_HAIN_ROLE || roleName === 'Gölge Ajanı' || roleName === 'Susturucu' || roleName === 'Necromancer' || roleName === 'Büyücü Hain' || roleName === MIXER_HAIN_ROLE) {
         return Boolean(hasGun);
     }
     if (roleName === 'Gizleyici' || roleName === 'Düz Hain' || roleName === 'Suikastçi' || roleName === 'Ninja Hain' || roleName === 'Kayıp Hain') {
@@ -124,6 +126,20 @@ function canRoleUseAttack(roleName, hasGun) {
     if (roleName === 'Vigilante') return true;
     if (roleName === 'Seri Katil') return true;
     return Boolean(hasGun);
+}
+
+function canHunterSpeakPublicly(player, room, now = Date.now()) {
+    return Boolean(
+        player &&
+        player.role === 'Avcı Köylü' &&
+        !player.isAlive &&
+        player.hunterStand &&
+        !player.hunterStandUsed &&
+        room &&
+        room.hunterStand &&
+        room.hunterStand.playerId === player.id &&
+        now < room.hunterStand.expiresAt
+    );
 }
 
 const DETECTIVE_CATEGORIES = {
@@ -341,6 +357,34 @@ function selectSpyListening(spy, dayNumber, listen) {
     return null;
 }
 
+function getTriggerHainTargetCandidates(players, trigger) {
+    return players.filter(player =>
+        player.isAlive && player.id !== trigger.id && !isHainPlayer(player)
+    );
+}
+
+function chooseTriggerHainTarget(room, trigger) {
+    const candidates = getTriggerHainTargetCandidates(room.players, trigger);
+    const target = candidates[Math.floor(Math.random() * candidates.length)];
+    trigger.triggerHainTargetId = target ? target.id : null;
+    trigger.triggerHainTargetRole = target ? target.role : null;
+}
+
+function refreshTriggerHainTargets(room) {
+    room.players
+        .filter(player => player.role === TRIGGER_HAIN_ROLE)
+        .forEach(trigger => {
+            const target = room.players.find(player => player.id === trigger.triggerHainTargetId);
+            if (!target || !target.isAlive || isHainPlayer(target)) {
+                chooseTriggerHainTarget(room, trigger);
+            }
+        });
+}
+
+function isTriggerHainGuessCorrect(target, assignedRole) {
+    return Boolean(target && target.isAlive && target.role === assignedRole);
+}
+
 function sendNightChatToSpies(room, text) {
     buildSpyChatDeliveries(room.players, text).forEach(({ playerId, message }) => {
         io.to(playerId).emit('chatMessage', message);
@@ -386,6 +430,8 @@ function createBotPlayer(index) {
         spyListenUses: 2,
         spyListenTonight: false,
         spyListenChoiceDay: 0,
+        triggerHainTargetId: null,
+        triggerHainTargetRole: null,
         roleHidden: false,
         hunterStand: false,
         hunterStandUsed: false,
@@ -559,7 +605,7 @@ function assignGuns(room) {
     const hains = room.players.filter(p => p.isAlive && ALL_HAIN_ROLES.includes(p.role) && p.role !== LOST_HAIN_ROLE && !isHainKoyluPlayer(p));
     hains.forEach(h => h.hasGun = false);
 
-    const priority = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Duyucu Hain', 'Ninja Hain', 'Gölge Ajanı', CLEANER_ROLE, 'Susturucu', 'Necromancer', 'Büyücü Hain'];
+    const priority = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Duyucu Hain', 'Ninja Hain', 'Gölge Ajanı', CLEANER_ROLE, 'Susturucu', TRIGGER_HAIN_ROLE, 'Necromancer', 'Büyücü Hain'];
     for (let roleName of priority) {
         const owners = hains.filter(h => h.role === roleName);
         if (owners.length === 0) continue;
@@ -641,6 +687,7 @@ function transformCarrier(room, carrier, newRole) {
 function sendGameState(roomCode) {
     const room = rooms[roomCode];
     if (!room) return;
+    refreshTriggerHainTargets(room);
 
     room.players.forEach(player => {
         const isHain = isHainPlayer(player);
@@ -687,6 +734,7 @@ function sendGameState(roomCode) {
             hasStolen: player.hasStolen,
             hasAssassinated: player.hasAssassinated,
             isHain: player.isHain,
+            triggerHainTargetRole: player.role === TRIGGER_HAIN_ROLE ? player.triggerHainTargetRole : null,
             spyListenUses: player.role === 'Casus' ? player.spyListenUses : null,
             spyListenChoiceMade: player.role === 'Casus' && player.spyListenChoiceDay === room.dayNumber,
             hunterStand: player.hunterStand,
@@ -774,6 +822,8 @@ io.on('connection', (socket) => {
             hasAssassinated: false,
             isHain: false,
             shadowRole: null,
+            triggerHainTargetId: null,
+            triggerHainTargetRole: null,
             spyListenUses: 2,
             spyListenTonight: false,
             spyListenChoiceDay: 0,
@@ -826,6 +876,8 @@ io.on('connection', (socket) => {
             hasAssassinated: false,
             isHain: false,
             shadowRole: null,
+            triggerHainTargetId: null,
+            triggerHainTargetRole: null,
             spyListenUses: 2,
             spyListenTonight: false,
             spyListenChoiceDay: 0,
@@ -900,6 +952,8 @@ io.on('connection', (socket) => {
             p.hasAssassinated = false;
             p.isHain = false;
             p.shadowRole = null;
+            p.triggerHainTargetId = null;
+            p.triggerHainTargetRole = null;
             p.spyListenUses = 2;
             p.spyListenTonight = false;
             p.spyListenChoiceDay = 0;
@@ -971,6 +1025,8 @@ io.on('connection', (socket) => {
             player.allyTargetId = null;
             player.allyProtectUses = 0;
             player.allyProtectDisabled = false;
+            player.triggerHainTargetId = null;
+            player.triggerHainTargetRole = null;
             player.spyListenUses = 2;
             player.spyListenTonight = false;
             player.spyListenChoiceDay = 0;
@@ -990,6 +1046,7 @@ io.on('connection', (socket) => {
         const cultLeader = room.players.find(player => player.role === CULT_LEADER_ROLE && player.isAlive);
         if (cultLeader) cultLeader.hasCultGun = true;
         assignLovers(room, cfg.asikCount);
+        refreshTriggerHainTargets(room);
         assignGuns(room);
 
         room.players.forEach(p => {
@@ -1219,12 +1276,13 @@ io.on('connection', (socket) => {
 
         const sender = room.players.find(p => p.id === socket.id);
         if (!sender) return;
+        const isHunterInStand = canHunterSpeakPublicly(sender, room);
 
         if (room.mutedPlayerId === socket.id && room.phase !== 'NIGHT') {
             return socket.emit('errorMsg', '🤐 Gece Susturucu tarafından susturuldunuz! Bugün konuşamazsınız.');
         }
 
-        if (!sender.isAlive) {
+        if (!sender.isAlive && !isHunterInStand) {
             if (sender.role === 'Müttefik') return socket.emit('errorMsg', 'Ölü Müttefik yalnızca gece koruma yapabilir.');
             const deads = room.players.filter(p => !p.isAlive);
             deads.forEach(p => io.to(p.id).emit('chatMessage', { sender: sender.username, text, type: 'dead' }));
@@ -1475,6 +1533,26 @@ io.on('connection', (socket) => {
             }
             if (actor.role === 'Suikastçi' && !actor.hasGun) {
                 return socket.emit('errorMsg', 'Silahın yoksa gece eylemi yapamazsın!');
+            }
+            if (actor.role === TRIGGER_HAIN_ROLE && !actor.hasGun) {
+                const target = room.players.find(player =>
+                    player.id === targetId && player.isAlive && player.id !== actor.id
+                );
+                if (!actor.triggerHainTargetRole) {
+                    return socket.emit('errorMsg', 'Tetikçi Hain için yaşayan hain olmayan bir hedef rol bulunmuyor!');
+                }
+                if (actionType !== 'TRIGGER_HAIN' || !target) {
+                    return socket.emit('errorMsg', 'Tetikçi Hain olarak başka bir yaşayan oyuncuyu hedeflemelisin!');
+                }
+            }
+            if (actor.role === TRIGGER_HAIN_ROLE && actor.hasGun && actionType === 'TRIGGER_HAIN') {
+                return socket.emit('errorMsg', 'Silah sende; bu gece normal saldırı yapmalısın!');
+            }
+            if (actor.role === TRIGGER_HAIN_ROLE && actor.hasGun) {
+                const target = room.players.find(player =>
+                    player.id === targetId && player.isAlive && player.id !== actor.id
+                );
+                if (!target) return socket.emit('errorMsg', 'Başka bir yaşayan oyuncuyu hedeflemelisin!');
             }
             if (actor.role === 'Ninja Hain' && actionType !== 'NINJA' && !actor.hasGun) {
                 return socket.emit('errorMsg', 'Silahın yoksa normal saldırı yapamazsın; Ninja yeteneğini kullanabilirsin!');
@@ -1876,6 +1954,9 @@ function addBotNightActions(room) {
                 : chooseTarget(bot);
         } else if (bot.role === 'Vigilante' && bot.ammo > 0) {
             target = chooseTarget(bot);
+        } else if (bot.role === TRIGGER_HAIN_ROLE && !bot.hasGun) {
+            target = chooseTarget(bot);
+            actionType = 'TRIGGER_HAIN';
         } else if (bot.role === 'Seri Katil' ||
             (bot.hasGun && ALL_HAIN_ROLES.includes(bot.role))) {
             target = chooseTarget(bot);
@@ -2130,6 +2211,7 @@ function calculateNightResult(roomCode) {
     let loverProtectTarget = null;
     let skTarget = null, skActor = null;
     let hainTarget = null, hainActor = null;
+    let triggerHainTarget = null, triggerHainActor = null, triggerHainIsGuess = false;
     let lostHainTarget = null, lostHainActor = null;
     let vigTarget = null, vigActor = null;
     let silencerTarget = null, silencerActor = null;
@@ -2145,7 +2227,7 @@ function calculateNightResult(roomCode) {
     const trapActors = new Map();
     let tricksterTarget = null, tricksterActor = null;
     // Tracks which actorIds performed a genuine Kill/Attack action this night
-    // (armed Hain, Vigilante, Seri Katil, or Ninja Hain). Only these matter for
+    // (armed Hain, Tetikçi Hain, Vigilante, Seri Katil, or Ninja Hain). Only these matter for
     // deciding whether a reflected Deceiver (Düzenbaz Köylü) redirect is lethal.
     const killPerformerIds = new Set();
 
@@ -2328,6 +2410,15 @@ function calculateNightResult(roomCode) {
             lostHainActor = actor;
             killPerformerIds.add(actorId);
         }
+        else if (actor.role === TRIGGER_HAIN_ROLE) {
+            triggerHainTarget = act.targetId;
+            triggerHainActor = actor;
+            triggerHainIsGuess = !actor.hasGun && act.actionType === 'TRIGGER_HAIN';
+            const target = room.players.find(player => player.id === act.targetId);
+            if (!triggerHainIsGuess || isTriggerHainGuessCorrect(target, actor.triggerHainTargetRole)) {
+                killPerformerIds.add(actorId);
+            }
+        }
         else if (actor.hasGun && ALL_HAIN_ROLES.includes(actor.role) && act.actionType !== 'NINJA') {
             hainTarget = act.targetId;
             hainActor = actor;
@@ -2376,51 +2467,7 @@ function calculateNightResult(roomCode) {
         io.to(silencerTarget).emit('chatMessage', { sender: '[SUSTURUCU]', text: '🤐 Gece bir Susturucu tarafından hedef alındınız! Yarın konuşamayacaksınız.', type: 'green' });
     }
 
-    if (arsoActor && arsoDouseTarget && !arsoIgnite) {
-        const dTarget = room.players.find(p => p.id === arsoDouseTarget);
-        if (dTarget && dTarget.isAlive) {
-            dTarget.isDoused = true;
-            emitRoleActionMessage(arsoActor, `🔥 ${dTarget.username} adlı kişinin evini yağladın.`);
-            io.to(arsoActor.id).emit('chatMessage', { sender: '[KUNDAKÇI]', text: `🔥 ${dTarget.username} adlı kişinin evi yağlandı.`, type: 'green' });
-        }
-    }
-
     let killedList = [];
-
-    if (ninjaActor && ninjaTarget) {
-        const ninjaVictims = Object.entries(actions)
-            .filter(([actorId, act]) => actorId !== ninjaActor.id && act.targetId === ninjaTarget && !act.noVisit && act.role !== 'Kundakçı')
-            .map(([actorId]) => room.players.find(p => p.id === actorId))
-            .filter(p => p && p.isAlive);
-        [...new Set(ninjaVictims)].forEach(victim => {
-            victim.isAlive = false;
-            const hiddenRole = false;
-            victim.roleHidden = hiddenRole;
-            killedList.push({ player: victim, killer: 'Ninja Hain', hiddenRole });
-            checkGunPass(room, victim);
-        });
-        emitRoleActionMessage(ninjaActor, `🌑 Seçtiğin evde ${ninjaVictims.length} ziyaretçiyi öldürdün. Kundakçı etkilenmedi.`);
-        io.to(ninjaActor.id).emit('chatMessage', { sender: '[NINJA HAIN]', text: `🌑 Seçtiğin evde ${ninjaVictims.length} ziyaretçiyi öldürdün. Kundakçı etkilenmedi.`, type: 'green' });
-    }
-
-    if (arsoIgnite) {
-        const dousedPlayers = room.players.filter(p => p.isAlive && p.isDoused && p.id !== arsoActor.id);
-        const visitorsToDoused = Object.entries(actions)
-            .filter(([actorId, act]) => act.targetId && !act.noVisit && dousedPlayers.some(target => target.id === act.targetId) && actorId !== arsoActor.id)
-            .map(([actorId]) => room.players.find(p => p.id === actorId))
-            .filter(p => p && p.isAlive && p.id !== arsoActor.id);
-        const arsoVictims = [...new Set([...dousedPlayers, ...visitorsToDoused])];
-        arsoVictims.forEach(v => {
-            v.isAlive = false;
-            if (v.role === 'Avcı Köylü') {
-                v.hunterStand = true;
-                v.hunterStandUsed = false;
-                room.hunterStand = { playerId: v.id, expiresAt: 0 };
-            }
-            killedList.push({ player: v, killer: 'Kundakçı', hiddenRole: false });
-            checkGunPass(room, v);
-        });
-    }
 
     const serialKiller = room.players.find(p => p.role === 'Seri Katil');
     const isArmedHain = player => Boolean(player && player.hasGun && ALL_HAIN_ROLES.includes(player.role));
@@ -2444,7 +2491,7 @@ function calculateNightResult(roomCode) {
         const victim = room.players.find(p => p.id === targetId);
         if (!victim || !victim.isAlive) return;
 
-        const canKillKundakci = ['Gizleyici', 'Seri Katil', LOST_HAIN_ROLE].includes(effectiveRole);
+        const canKillKundakci = ['Gizleyici', TRIGGER_HAIN_ROLE, 'Seri Katil', LOST_HAIN_ROLE].includes(effectiveRole);
         const isKundakciTarget = victim.role === 'Kundakçı';
         if (isKundakciTarget && !canKillKundakci) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
@@ -2452,7 +2499,9 @@ function calculateNightResult(roomCode) {
             return;
         }
 
-        if (isMutualIgniteAttackOnArsonist && victim.id === arsoActor.id) {
+        if (isMutualIgniteAttackOnArsonist &&
+            attacker.id !== (triggerHainActor && triggerHainActor.id) &&
+            victim.id === arsoActor.id) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
             io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: 'Hedefinizi öldüremediniz.', type: 'green' });
             if (attacker.role === 'Gizleyici' || attacker.role === 'Seri Katil') {
@@ -2503,7 +2552,65 @@ function calculateNightResult(roomCode) {
         }
     }
 
+    if (triggerHainActor && triggerHainTarget) {
+        const target = room.players.find(player => player.id === triggerHainTarget);
+        if (triggerHainIsGuess && !isTriggerHainGuessCorrect(target, triggerHainActor.triggerHainTargetRole)) {
+            if (target && target.isAlive) {
+                io.to(target.id).emit('chatMessage', {
+                    sender: '[SİSTEM]',
+                    text: 'Bir Tetikçi Hain seni yanlış tahmin etti.',
+                    type: 'green'
+                });
+            }
+        } else {
+            processAttack(triggerHainActor, triggerHainTarget, TRIGGER_HAIN_ROLE, TRIGGER_HAIN_ROLE);
+        }
+    }
+
+    if (arsoActor && arsoDouseTarget && !arsoIgnite && arsoActor.isAlive) {
+        const dTarget = room.players.find(p => p.id === arsoDouseTarget);
+        if (dTarget && dTarget.isAlive) {
+            dTarget.isDoused = true;
+            emitRoleActionMessage(arsoActor, `🔥 ${dTarget.username} adlı kişinin evini yağladın.`);
+            io.to(arsoActor.id).emit('chatMessage', { sender: '[KUNDAKÇI]', text: `🔥 ${dTarget.username} adlı kişinin evi yağlandı.`, type: 'green' });
+        }
+    }
+
+    if (arsoIgnite && arsoActor && arsoActor.isAlive) {
+        const dousedPlayers = room.players.filter(p => p.isAlive && p.isDoused && p.id !== arsoActor.id);
+        const visitorsToDoused = Object.entries(actions)
+            .filter(([actorId, act]) => act.targetId && !act.noVisit && dousedPlayers.some(target => target.id === act.targetId) && actorId !== arsoActor.id)
+            .map(([actorId]) => room.players.find(p => p.id === actorId))
+            .filter(p => p && p.isAlive && p.id !== arsoActor.id);
+        const arsoVictims = [...new Set([...dousedPlayers, ...visitorsToDoused])];
+        arsoVictims.forEach(v => {
+            v.isAlive = false;
+            if (v.role === 'Avcı Köylü') {
+                v.hunterStand = true;
+                v.hunterStandUsed = false;
+                room.hunterStand = { playerId: v.id, expiresAt: 0 };
+            }
+            killedList.push({ player: v, killer: 'Kundakçı', hiddenRole: false });
+            checkGunPass(room, v);
+        });
+    }
+
     if (skTarget) processAttack(skActor, skTarget, 'Seri Katil', 'Seri Katil');
+    if (ninjaActor && ninjaActor.isAlive && ninjaTarget) {
+        const ninjaVictims = Object.entries(actions)
+            .filter(([actorId, act]) => actorId !== ninjaActor.id && act.targetId === ninjaTarget && !act.noVisit && act.role !== 'Kundakçı')
+            .map(([actorId]) => room.players.find(p => p.id === actorId))
+            .filter(p => p && p.isAlive);
+        [...new Set(ninjaVictims)].forEach(victim => {
+            victim.isAlive = false;
+            const hiddenRole = false;
+            victim.roleHidden = hiddenRole;
+            killedList.push({ player: victim, killer: 'Ninja Hain', hiddenRole });
+            checkGunPass(room, victim);
+        });
+        emitRoleActionMessage(ninjaActor, `🌑 Seçtiğin evde ${ninjaVictims.length} ziyaretçiyi öldürdün. Kundakçı etkilenmedi.`);
+        io.to(ninjaActor.id).emit('chatMessage', { sender: '[NINJA HAIN]', text: `🌑 Seçtiğin evde ${ninjaVictims.length} ziyaretçiyi öldürdün. Kundakçı etkilenmedi.`, type: 'green' });
+    }
     if (hainActor && hainTarget) processAttack(hainActor, hainTarget, actions[hainActor.id]?.role === 'Gizleyici' ? 'Gizleyici' : 'Hainler', actions[hainActor.id]?.role || hainActor.role);
     if (lostHainActor && lostHainTarget) processAttack(lostHainActor, lostHainTarget, LOST_HAIN_ROLE, LOST_HAIN_ROLE);
     if (cultActor && cultTarget && cultActionType === 'CULT_ATTACK') {
@@ -2542,8 +2649,8 @@ function calculateNightResult(roomCode) {
 
     // --- DÜZENBAZ KÖYLÜ (DECEIVER) — SURVIVAL OUTCOME ---
     // The Deceiver only pays with his life when the specific action that got reflected
-    // back onto its performer was a genuine Kill/Attack (armed Hain, Vigilante, Seri
-    // Katil, or Ninja Hain) - this is decided by killPerformerIds, populated purely from
+    // back onto its performer was a genuine Kill/Attack (armed Hain, Tetikçi Hain,
+    // Vigilante, Seri Katil, or Ninja Hain) - this is decided by killPerformerIds, populated purely from
     // action *type*, so it stays correct even if the self-inflicted attack was ultimately
     // survived thanks to Doctor/Lover/Jester protection. Any reflected non-killing action
     // (Susturma, Uyutma, Rol Öğrenme, Tuzak kurma, vb.) always leaves the Deceiver unharmed.
@@ -2880,6 +2987,8 @@ module.exports = {
     updateNoDeathStreak,
     canUseAdditionalNightAction,
     canUseAllyProtection,
+    getTriggerHainTargetCandidates,
+    isTriggerHainGuessCorrect,
     getAdditionalWinners,
     withAdditionalWinners,
     hasHainMajority,
@@ -2887,6 +2996,7 @@ module.exports = {
     buildRandomRolePool,
     pickRandomRoleSet,
     canRoleUseAttack,
+    canHunterSpeakPublicly,
     DETECTIVE_CATEGORIES,
     getDetectiveAnswer,
     getSheriffShotOutcome,
