@@ -2410,10 +2410,10 @@ function calculateNightResult(roomCode) {
             lostHainActor = actor;
             killPerformerIds.add(actorId);
         }
-        else if (actor.role === TRIGGER_HAIN_ROLE) {
+        else if (actor.role === TRIGGER_HAIN_ROLE && !actor.hasGun) {
             triggerHainTarget = act.targetId;
             triggerHainActor = actor;
-            triggerHainIsGuess = !actor.hasGun && act.actionType === 'TRIGGER_HAIN';
+            triggerHainIsGuess = act.actionType === 'TRIGGER_HAIN';
             const target = room.players.find(player => player.id === act.targetId);
             if (!triggerHainIsGuess || isTriggerHainGuessCorrect(target, actor.triggerHainTargetRole)) {
                 killPerformerIds.add(actorId);
@@ -2486,12 +2486,13 @@ function calculateNightResult(roomCode) {
             (vigActor && vigTarget === arsoActor.id))
     );
 
-    function processAttack(attacker, targetId, killerName, effectiveRole = attacker && attacker.role) {
+    function processAttack(attacker, targetId, killerName, effectiveRole = attacker && attacker.role, ignoreProtections = false) {
         if (!attacker || !attacker.isAlive || !targetId) return;
         const victim = room.players.find(p => p.id === targetId);
         if (!victim || !victim.isAlive) return;
 
-        const canKillKundakci = ['Gizleyici', TRIGGER_HAIN_ROLE, 'Seri Katil', LOST_HAIN_ROLE].includes(effectiveRole);
+        const canKillKundakci = ['Gizleyici', 'Seri Katil', LOST_HAIN_ROLE].includes(effectiveRole) ||
+            (effectiveRole === TRIGGER_HAIN_ROLE && !attacker.hasGun);
         const isKundakciTarget = victim.role === 'Kundakçı';
         if (isKundakciTarget && !canKillKundakci) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
@@ -2521,10 +2522,10 @@ function calculateNightResult(roomCode) {
             return;
         }
 
-        let protectedByDoc = (docTarget === targetId);
-        let protectedByAlly = (allyProtectTarget === targetId);
-        let protectedByLover = (loverProtectTarget === targetId);
-        let protectedByJester = (victim.role === 'Jester' && victim.jesterShieldProtected);
+        let protectedByDoc = !ignoreProtections && (docTarget === targetId);
+        let protectedByAlly = !ignoreProtections && (allyProtectTarget === targetId);
+        let protectedByLover = !ignoreProtections && (loverProtectTarget === targetId);
+        let protectedByJester = !ignoreProtections && (victim.role === 'Jester' && victim.jesterShieldProtected);
 
         if (protectedByDoc || protectedByAlly || protectedByLover || protectedByJester) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
@@ -2558,12 +2559,12 @@ function calculateNightResult(roomCode) {
             if (target && target.isAlive) {
                 io.to(target.id).emit('chatMessage', {
                     sender: '[SİSTEM]',
-                    text: 'Bir Tetikçi Hain seni yanlış tahmin etti.',
+                    text: `${triggerHainActor.username} kişisi seni yanlış tahmin etti.`,
                     type: 'green'
                 });
             }
         } else {
-            processAttack(triggerHainActor, triggerHainTarget, TRIGGER_HAIN_ROLE, TRIGGER_HAIN_ROLE);
+            processAttack(triggerHainActor, triggerHainTarget, TRIGGER_HAIN_ROLE, TRIGGER_HAIN_ROLE, true);
         }
     }
 
