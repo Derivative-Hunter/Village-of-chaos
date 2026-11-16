@@ -724,8 +724,7 @@
             <div class="role-category neutral">
                 <h5>⚖️ Tarafsız · Normal Tarafsızlar</h5>
                 <div class="setting-grid">
-                    <div class="setting-item"><label>Rol sayısı (Jester / Hırsız / Müttefik / Taşıyıcı):</label><input type="number" id="cfg-normal-tarafsiz" value="0" min="0" max="4" onchange="emitSettings()"></div>
-                        <div class="setting-item"><label>Rastgele normal tarafsız rol sayısı:</label><input type="number" id="cfg-normal-tarafsiz" value="0" min="0" max="4" onchange="emitSettings()"></div>
+                    <div class="setting-item"><label>Rol sayısı (Jester / Hırsız / Müttefik / Taşıyıcı / Ritüelci):</label><input type="number" id="cfg-normal-tarafsiz" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 </div>
             </div>
             <div class="role-category town">
@@ -800,6 +799,7 @@
                 <div class="setting-item"><label>Hırsız</label><input type="number" id="cfg-role-hirsiz" data-role="Hırsız" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Müttefik</label><input type="number" id="cfg-role-muttefik" data-role="Müttefik" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Taşıyıcı (Hastalıklı)</label><input type="number" id="cfg-role-tasiyici" data-role="Taşıyıcı (Hastalıklı)" value="0" min="0" max="1" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Ritüelci</label><input type="number" id="cfg-role-rituelci" data-role="Ritüelci" value="0" min="0" max="1" onchange="emitSettings()"></div>
             </div>
         </div>
 
@@ -912,6 +912,10 @@
             <button id="spy-listen-yes-btn" class="btn-action-purple" onclick="chooseSpyListening(true)">🕵️ Bu gece dinle</button>
             <button class="btn-gold" onclick="chooseSpyListening(false)">Bu gece dinleme</button>
         </div>
+        <div id="ritualist-tools" class="night-role-tools hidden">
+            <select id="ritualist-role-select" aria-label="Tahmin edilecek rol"></select>
+            <span id="ritualist-progress">Doğru tahmin: 0/0</span>
+        </div>
         <div id="carrier-tools" class="night-role-tools hidden">
             <select id="carrier-role-select" aria-label="Dönüşülecek rol"></select>
             <button class="btn-action-pink" onclick="chooseCarrierRole()">🦠 Yeni Rolü Seç</button>
@@ -1006,6 +1010,7 @@
             <option value="Kundakçı">Kundakçı</option>
             <option value="Müttefik">Müttefik</option>
             <option value="Taşıyıcı (Hastalıklı)">Taşıyıcı (Hastalıklı)</option>
+            <option value="Ritüelci">Ritüelci</option>
         </select>
         <button class="btn-danger" onclick="confirmSuikast()">Ateş Et!</button>
         <button class="btn-gold" onclick="closeSuikastModal()">İptal</button>
@@ -1024,13 +1029,13 @@
         <div class="role-list-item"><strong>🔮 Medyum:</strong> Ölü oyuncuların sohbet mesajlarını duyabilir.</div>
         <div class="role-list-item"><strong>🕵️ Casus:</strong> Gündüz fısıltılarını gizlice görür. Gündüz seçerek iki kez gece aşıkların, hainlerin ve tarikatın mesajlarını gönderenleri görmeden dinleyebilir; bu durumda sohbet üyelerine dinlendikleri bildirilir.</div>
         <div class="role-list-item"><strong>💤 Uyutucu:</strong> Gece seçtiği oyuncunun eylemini iptal eder.</div>
-        <div class="role-list-item"><strong>🪤 Tuzakçı Köylü:</strong> Seçtiği eve gidenlerin rol gücünü kullandırmaz. Seri Katil ve Kundakçı bu tuzaktan etkilenmez.</div>
+        <div class="role-list-item"><strong>🪤 Tuzakçı Köylü:</strong> Seçtiği eve gidenlerin rol gücünü kullandırmaz. Seri Katil, Kundakçı ve Ritüelci bu tuzaktan etkilenmez.</div>
         <div class="role-list-item"><strong>🏥 Doktor:</strong> Gece seçtiği bir oyuncuyu saldırılardan korur.</div>
         <div class="role-list-item"><strong>👼 Melek:</strong> Öldükten sonra da gece yaşayan bir oyuncuyu saldırılardan koruyabilir; ölü oyuncuları koruyamaz.</div>
         <div class="role-list-item"><strong>👑 Başkan:</strong> Kendini ifşa ederse oy gücü 3 olur; yaşadığı sürece Hainlerin ve Seri Katilin kazanmasını engeller.</div>
         <div class="role-list-item"><strong>🔫 Vigilante:</strong> Toplam 3 mermisiyle geceleri bir oyuncuya saldırır; tarikata dönüştürülmemişse köylü takımından birini vurduğunda vicdan azabıyla ölür.</div>
         <div class="role-list-item"><strong>🤠 Şerif:</strong> 2. günden itibaren gündüz sohbet veya oylama vaktinde günde bir kez, oyun boyunca toplam iki kez ateş edebilir. Köylü takımından birini vurursa kendisi de ölür; hain veya tarikata dönüştürülmüş Şerif bu durumda ölmez. Kundakçı hayatta kalır ve rolü açığa çıkar. Hayattayken Başkan gibi Hain ve Seri Katil zaferini engeller; ateş ettiği anda kimliği açıklanmaz.</div>
-        <div class="role-list-item"><strong>🪞 Düzenbaz Köylü:</strong> Gece bir eve gider. O eve gelen eylemler ziyaretçiye yansır; öldürmeye gelen kişi kendini vurur ve Düzenbaz da ölür. Kundakçıdan etkilenmez.</div>
+        <div class="role-list-item"><strong>🪞 Düzenbaz Köylü:</strong> Gece bir eve gider. O eve gelen eylemler ziyaretçiye yansır; öldürmeye gelen kişi kendini vurur ve Düzenbaz da ölür. Kundakçı ve Ritüelcinin eylemleri yansıtılmaz.</div>
         <div class="role-list-item"><strong>🎯 Avcı Köylü:</strong> Gece öldürülürse sabah 20 saniyelik son direnişinde normal kasaba sohbetine yazabilir ve bir kişiye ateş edebilir. Ateş ettiğinde veya süre dolduğunda sonraki mesajları ölü sohbetine gider. Kundakçıya ateş ederse Kundakçı ölmez ama ortaya çıkar.</div>
         <div class="role-list-item"><strong>💗 Aşıklar:</strong> Oyun başında iki köylü veya bir köylü ile bir hain rastgele eşleşir. Birinin ölümü diğerini de öldürür. Gece bir kez aşığını koruyabilir ve gece özel sohbet edebilir. Tarafsızlarla birlikte kazanamazlar.</div>
         <div class="role-list-item"><strong>👤 Düz Köylü:</strong> Özel eylemi yoktur; gündüz sohbet ve oylamalarla tehditleri bulur.</div>
@@ -1039,7 +1044,7 @@
         <div class="role-list-item evil"><strong>🕵️ Gizleyici:</strong> Gece silahı taşıyıp saldırıyı gerçekleştirir; öldürdüğü kişinin rolünü gizler.</div>
         <div class="role-list-item evil"><strong>👹 Düz Hain:</strong> Hainlerle birlikte hareket eder ve silah kendisine geçtiğinde gece saldırır.</div>
         <div class="role-list-item evil"><strong>🎭 Karıştırıcı Hain:</strong> Gündüz yaşayan herhangi bir oyuncuyu, kendisi dahil, seçer. Mesajları yalnızca yaşayan hainlere seçtiği kişinin adıyla turuncu görünür; silahı yoksa gece eylemi yapamaz.</div>
-        <div class="role-list-item evil"><strong>🌑 Ninja Hain:</strong> Gece bir kez bir eve gider ve o eve gelen herkesi öldürür; Kundakçı etkilenmez. Silahı olsa bile aynı gece ya silahıyla saldırır ya da bu yeteneğini kullanır.</div>
+        <div class="role-list-item evil"><strong>🌑 Ninja Hain:</strong> Gece bir kez bir eve gider ve o eve gelen herkesi öldürür; Kundakçı ve Ritüelci etkilenmez. Silahı olsa bile aynı gece ya silahıyla saldırır ya da bu yeteneğini kullanır.</div>
         <div class="role-list-item evil"><strong>🕳️ Kayıp Hain:</strong> Hain takımındadır ancak diğer hainleri göremez ve hain sohbetine katılamaz. Her gece bağımsız silahıyla bir kişiye saldırabilir; diğer hainler de onu tanımaz.</div>
         <div class="role-list-item evil"><strong>🌑 Gölge Ajanı:</strong> Gece bir oyuncunun rolünü öğrenir; sabah yalnızca kendi evinin üstünde bu rolü görür.</div>
         <div class="role-list-item evil"><strong>🧹 Temizlikçi Hain:</strong> Silahı yokken her gece bir evi temizler. Temizlenen oyuncu o gece ölürse rolü gizli kalır; Dedektif ondan yalnızca "Hedefiniz temizlenmiştir" yanıtını alır ve Kahin temizlenen ziyaretçilerin rollerini göremez. Silahı varsa temizlemek yerine saldırır.</div>
@@ -1047,7 +1052,7 @@
         <div class="role-list-item evil"><strong>🤐 Susturucu:</strong> Silahı taşıdığı zaman saldırır; taşımadığı zaman gece bir oyuncuyu ertesi gün susturur.</div>
         <div class="role-list-item evil"><strong>🎯 Tetikçi Hain:</strong> Başlangıçta yaşayan hain olmayan bir oyuncunun rolünü gizlice hedef rol olarak alır. Silahsızken her gece başka bir oyuncuyu ziyaret eder; rolü hedef rol ile eşleşirse korumalara rağmen öldürür, eşleşmezse hedefe kendi adıyla yanlış tahmin ettiği bildirilir. Hedef oyuncu ölürse yeni yaşayan hain olmayan bir hedef rol belirlenir. Silahı varsa düz hain gibi, hain takımının saldırı sırasıyla saldırır; Kundakçı'yı öldüremez.</div>
         <div class="role-list-item evil"><strong>💀 Necromancer:</strong> Silahı yoksa ölü havuzundaki uygun bir rolün gücünü yaşayan bir hedefe yönlendirir. Vigilante ve Ninja Hain'in kullanılmamış haklarını tüketir; araştırma bilgileri yalnızca Necromancer'a gelir.</div>
-        <div class="role-list-item evil"><strong>🪄 Büyücü Hain:</strong> Gece bir rolün gücünü ele geçirip başka bir hedefe kullandırır. Kontrol edilen rol o gece eylem yapamaz; Kundakçı kontrol edilemez.</div>
+        <div class="role-list-item evil"><strong>🪄 Büyücü Hain:</strong> Gece bir rolün gücünü ele geçirip başka bir hedefe kullandırır. Kontrol edilen rol o gece eylem yapamaz; Kundakçı ve Ritüelci kontrol edilemez.</div>
         <div class="role-list-item evil"><strong>👂 Duyucu Hain:</strong> Gündüz fısıltılarını görür. Gece hainlerle veya ölülerle konuşabilir; ölüler onu Gizemli Hain olarak görür.</div>
         <div class="role-list-item evil"><strong>🎭 Hain Köylü:</strong> Rastgele bir köy rolüyle oynar ve o rolün normal yeteneğini kullanır; Düzenbaz Köylü, Şerif veya Avcı Köylü de olabilir. Hain takımındadır ve silah alamaz. Vigilante olursa 3 mermisi vardır ve masum vurduğunda ölmez; hain takımında tek kaldığında üç gün dayanırsa kazanır.</div>
 
@@ -1063,6 +1068,7 @@
         <div class="role-list-item neutral"><strong>🎭 Hırsız:</strong> Gündüz yaşayan bir oyuncuyu öldürür ve onun rolünü çalar.</div>
         <div class="role-list-item neutral"><strong>🤝 Müttefik:</strong> İlk gece bir oyuncu seçer; seçim yapmazsa rastgele bir oyuncu belirlenir. Seçtiği kişiyi ilk gece dahil toplam iki kez saldırılardan korur. Öldükten sonra da yalnızca seçtiği kişiyi koruyabilir; kendisini koruyamaz. Rolü Hırsız tarafından alınırsa koruma yapamaz. Müttefiki oyun sonunda hayattaysa kendisi de kazanır.</div>
         <div class="role-list-item neutral"><strong>🦠 Taşıyıcı (Hastalıklı):</strong> Oyuna hastalıklı başlar. Gece ziyaret ettiği ve kendisini ziyaret eden oyunculara hastalık bulaştırır. Tüm yaşayan oyuncular hastalandığında kalkan kazanır ve yalnızca hayattaysa gündüz oyunda olmayan bir role dönüşebilir. Dönüştüğü rol otomatik kalkanlı değilse kalkanını kaybeder.</div>
+        <div class="role-list-item neutral"><strong>🔮 Ritüelci:</strong> Her gece yaşayan başka bir oyuncunun rolünü tahmin eder. 7 veya daha az oyuncuda 2, 8–11 oyuncuda 3, 12 veya daha fazla oyuncuda 4 farklı oyuncuyu doğru tahmin ederse kazanır. Her gece bir tahmin hakkı vardır; yanlış tahmin yalnızca kendisine bildirilir. Kundakçı gibi otomatik kalkanı sayesinde uyutulamaz, tuzaklara ve Düzenbaz'ın yansıtmasına yakalanmaz; gözlem ve takip raporlarında görünmez.</div>
         <button class="btn-gold" style="margin-top: 15px;" onclick="closeRoleModal()">Kapat</button>
     </div>
 </div>
@@ -1286,7 +1292,7 @@
         badge.innerText = role;
         if (isHain || (role && ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'].includes(role))) {
             badge.className = 'role-pill Hain';
-        } else if (['Seri Katil', 'Jester', 'Hırsız', 'Kundakçı', 'Müttefik', 'Taşıyıcı (Hastalıklı)'].includes(role)) {
+        } else if (['Seri Katil', 'Jester', 'Hırsız', 'Kundakçı', 'Müttefik', 'Taşıyıcı (Hastalıklı)', 'Ritüelci'].includes(role)) {
             badge.className = 'role-pill Neutral';
         } else {
             badge.className = 'role-pill Town';
@@ -1308,7 +1314,7 @@
         loadNotes();
     });
 
-    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, astralTargets, phase, timeLeft, dayNumber, defendantId, hasGun, hasCultGun, cultActionMode, isCultMember, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, triggerHainTargetRole, spyListenUses, spyListenChoiceMade, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions, mixerTargetId, sheriffShotsUsed, sheriffLastShotDay }) => {
+    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, astralTargets, phase, timeLeft, dayNumber, defendantId, hasGun, hasCultGun, cultActionMode, isCultMember, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, triggerHainTargetRole, spyListenUses, spyListenChoiceMade, ritualistRoleOptions, ritualistCorrectGuesses, ritualistRequiredGuesses, ritualistGuessedPlayerIds, ritualistGuessMade, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions, mixerTargetId, sheriffShotsUsed, sheriffLastShotDay }) => {
         players.forEach(player => {
             if (myRole === 'Gölge Ajanı' && player.shadowRole) knownShadowRoles[player.id] = player.shadowRole;
         });
@@ -1338,6 +1344,7 @@
         const detectiveTools = document.getElementById('detective-tools');
         const spyListenTools = document.getElementById('spy-listen-tools');
         const spyListenYesBtn = document.getElementById('spy-listen-yes-btn');
+        const ritualistTools = document.getElementById('ritualist-tools');
         const carrierTools = document.getElementById('carrier-tools');
         const duyucuTools = document.getElementById('duyucu-tools');
         const duyucuLoverChatBtn = document.getElementById('duyucu-lover-chat-btn');
@@ -1370,6 +1377,7 @@
         astralTools.classList.add('hidden');
         detectiveTools.classList.add('hidden');
         spyListenTools.classList.add('hidden');
+        ritualistTools.classList.add('hidden');
         carrierTools.classList.add('hidden');
         duyucuTools.classList.add('hidden');
         duyucuLoverChatBtn.classList.add('hidden');
@@ -1423,6 +1431,10 @@
                 astralTools.classList.remove('hidden');
             }
             if (myRole === 'Dedektif' && amIAlive && !hasCultGun) detectiveTools.classList.remove('hidden');
+            if (myRole === 'Ritüelci' && amIAlive && !hasCultGun) {
+                setupRitualistTools(ritualistRoleOptions || [], ritualistCorrectGuesses, ritualistRequiredGuesses);
+                ritualistTools.classList.remove('hidden');
+            }
             if (myRole === 'Duyucu Hain' && amIAlive) {
                 duyucuTools.classList.remove('hidden');
                 if (isLover) duyucuLoverChatBtn.classList.remove('hidden');
@@ -1487,9 +1499,12 @@
                             return true;
                         })(myRole);
 
-                        if (myRole === 'Tetikçi Hain' && amIAlive && !hasGun && !hasCultGun && p.isAlive && !isMe && triggerHainTargetRole) {
+                        if (myRole === 'Ritüelci' && amIAlive && !hasCultGun && !ritualistGuessMade &&
+                            p.isAlive && !isMe && !(ritualistGuessedPlayerIds || []).includes(p.id)) {
+                            actionBtnHtml = `<button class="card-btn btn-action-purple" onclick="ritualistGuess('${p.id}')">🔮 Rol Tahmin Et</button>`;
+                        } else if (myRole === 'Tetikçi Hain' && amIAlive && !hasGun && !hasCultGun && p.isAlive && !isMe && triggerHainTargetRole) {
                             actionBtnHtml = `<button class="card-btn btn-action-purple" onclick="handleNightAction('${p.id}', 'TRIGGER_HAIN')">🎯 Rol Tahmin Et</button>`;
-                        } else if (((amIAlive && myRole !== 'Melek') || (myRole === 'Melek' && !amIAlive) || canDeadAllyProtect) && !hasCultGun && !['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü', 'Şerif', 'Araya Sızan'].includes(myRole) && !(myRole === 'Tetikçi Hain' && !hasGun) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
+                        } else if (((amIAlive && myRole !== 'Melek') || (myRole === 'Melek' && !amIAlive) || canDeadAllyProtect) && !hasCultGun && !['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü', 'Şerif', 'Araya Sızan', 'Ritüelci'].includes(myRole) && !(myRole === 'Tetikçi Hain' && !hasGun) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
                             let btnLabel = '🎯 Eylem';
                             if (myRole === 'Doktor' || myRole === 'Melek') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
                             else if (myRole === 'Müttefik') btnLabel = dayNumber === 1 ? '🤝 Müttefikini Seç' : '🛡️ Müttefikini Koru';
@@ -1631,6 +1646,24 @@
 
     function chooseSpyListening(listen) {
         socket.emit('spyListenChoice', { roomCode: currentRoomCode, listen });
+    }
+
+    function setupRitualistTools(roleOptions, correctGuesses, requiredGuesses) {
+        const select = document.getElementById('ritualist-role-select');
+        const selectedRole = select.value;
+        select.replaceChildren(
+            new Option('Tahmin edilecek rolü seç', ''),
+            ...roleOptions.map(role => new Option(role, role))
+        );
+        if (roleOptions.includes(selectedRole)) select.value = selectedRole;
+        document.getElementById('ritualist-progress').innerText =
+            `Doğru tahmin: ${correctGuesses || 0}/${requiredGuesses || 0}`;
+    }
+
+    function ritualistGuess(targetId) {
+        const guessedRole = document.getElementById('ritualist-role-select').value;
+        if (!guessedRole) return alert('Önce tahmin edeceğin rolü seç!');
+        socket.emit('ritualistGuessAction', { roomCode: currentRoomCode, targetId, guessedRole });
     }
 
     function handleVote(targetId) {

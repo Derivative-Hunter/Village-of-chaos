@@ -14,6 +14,7 @@ app.get('/', (req, res) => {
 });
 
 const rooms = {};
+const RITUALIST_ROLE = 'Ritüelci';
 
 const ROLE_CATEGORIES = {
     town: {
@@ -28,7 +29,7 @@ const ROLE_CATEGORIES = {
     },
     neutral: {
         'Silahlı Tarafsızlar': ['Kundakçı', 'Seri Katil'],
-        'Normal Tarafsızlar': ['Jester', 'Hırsız', 'Müttefik', 'Taşıyıcı (Hastalıklı)']
+        'Normal Tarafsızlar': ['Jester', 'Hırsız', 'Müttefik', 'Taşıyıcı (Hastalıklı)', RITUALIST_ROLE]
     },
     cult: {
         'Tarikat Takımı': ['Tarikat Lideri', 'Araya Sızan']
@@ -42,7 +43,8 @@ const CULT_LEADER_ROLE = 'Tarikat Lideri';
 const CULT_ROLE_NAMES = Object.values(ROLE_CATEGORIES.cult).flat();
 const TRIGGER_HAIN_ROLE = 'Tetikçi Hain';
 const ROLE_TRAITS = {
-    'Kundakçı': { automaticShield: true }
+    'Kundakçı': { automaticShield: true },
+    [RITUALIST_ROLE]: { automaticShield: true }
 };
 const ALL_HAIN_ROLES = ['Gizleyici', 'Düz Hain', MIXER_HAIN_ROLE, 'Suikastçi', 'Gölge Ajanı', CLEANER_ROLE, 'Susturucu', TRIGGER_HAIN_ROLE, 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain', ARAYA_SIZAN_ROLE];
 const NECROMANCER_SOURCE_ROLES = ['Doktor', 'Uyutucu', 'Tuzakçı Köylü', 'Vigilante', 'Düzenbaz Köylü', 'Ayakçı', 'Gözcü', 'Kahin Köylü', 'Ninja Hain', 'Kayıp Hain', 'Gölge Ajanı', 'Susturucu', 'Seri Katil'];
@@ -54,7 +56,7 @@ const isHainPlayer = player => Boolean(player && (player.role === ARAYA_SIZAN_RO
 const isCultPlayer = player => Boolean(player && player.isCult);
 const isCountedHain = player => Boolean(isHainPlayer(player) && ![LOST_HAIN_ROLE, ARAYA_SIZAN_ROLE].includes(player.role));
 const NON_VISITING_ROLES = ['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Jester'];
-const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', 'Jester', 'Hırsız', 'Müttefik', CARRIER_ROLE];
+const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', 'Jester', 'Hırsız', 'Müttefik', CARRIER_ROLE, RITUALIST_ROLE];
 
 const roleNames = group => Object.values(group).flat();
 const TOWN_ROLES = ['Düz Köylü', ...roleNames(ROLE_CATEGORIES.town)];
@@ -174,10 +176,10 @@ function getDetectiveAnswer(target, category) {
 
 function getSheriffShotOutcome(actor, target) {
     const targetIsArsonist = target.role === 'Kundakçı';
-    const targetHasCarrierShield = isCarrierShieldActive(target);
+    const targetHasAutomaticShield = hasAutomaticShield(target);
     const targetIsTownsperson = !isHainPlayer(target) && !isCultPlayer(target) && !NEUTRAL_ROLES.includes(target.role);
     return {
-        targetDies: !targetIsArsonist && !targetHasCarrierShield,
+        targetDies: !targetIsArsonist && !targetHasAutomaticShield,
         revealTargetRole: targetIsArsonist,
         sheriffDies: !targetIsArsonist && targetIsTownsperson && !isHainPlayer(actor) && !isCultPlayer(actor)
     };
@@ -203,13 +205,45 @@ function isCarrierShieldActive(player) {
     return Boolean(player && player.carrierShieldActive);
 }
 
-function canRoleKillKundakci(roleName, hasGun = false) {
+function hasAutomaticShield(player) {
+    return Boolean(player && (isCarrierShieldActive(player) || roleHasAutomaticShield(player.role)));
+}
+
+function canRoleKillShieldedRole(roleName, hasGun = false) {
     return ['Gizleyici', 'Seri Katil', LOST_HAIN_ROLE].includes(roleName) ||
         (roleName === TRIGGER_HAIN_ROLE && !hasGun);
 }
 
-function roleHasAutomaticCarrierShield(roleName) {
+function roleHasAutomaticShield(roleName) {
     return ROLE_TRAITS[roleName]?.automaticShield === true;
+}
+
+function getRitualistTargetCount(playerCount) {
+    if (playerCount <= 7) return 2;
+    if (playerCount <= 11) return 3;
+    return 4;
+}
+
+function recordRitualistGuess(actor, target, guessedRole) {
+    if (!actor || !target || !target.id) return { result: 'invalid', correctCount: 0 };
+    if (!Array.isArray(actor.ritualistGuessedPlayerIds)) actor.ritualistGuessedPlayerIds = [];
+    if (actor.ritualistGuessedPlayerIds.includes(target.id)) {
+        return { result: 'already-guessed', correctCount: actor.ritualistGuessedPlayerIds.length };
+    }
+    if (target.role !== guessedRole) {
+        return { result: 'incorrect', correctCount: actor.ritualistGuessedPlayerIds.length };
+    }
+    actor.ritualistGuessedPlayerIds.push(target.id);
+    return { result: 'correct', correctCount: actor.ritualistGuessedPlayerIds.length };
+}
+
+function getRitualistWinner(players) {
+    return players.find(player =>
+        player.role === RITUALIST_ROLE &&
+        player.ritualistRequiredGuesses > 0 &&
+        Array.isArray(player.ritualistGuessedPlayerIds) &&
+        player.ritualistGuessedPlayerIds.length >= player.ritualistRequiredGuesses
+    ) || null;
 }
 
 function isCultConversionTarget(target) {
@@ -326,7 +360,7 @@ function isWizardControlAction(action) {
 }
 
 function canBePutToSleep(target, action) {
-    return !(target && target.role === 'Büyücü Hain' && isWizardControlAction(action));
+    return !(hasAutomaticShield(target) || (target && target.role === 'Büyücü Hain' && isWizardControlAction(action)));
 }
 
 function canWizardTarget(actor, controlled, target) {
@@ -694,7 +728,7 @@ function transformCarrier(room, carrier, newRole) {
     const options = carrier.carrierRoleOptions || [];
     if (!options.includes(newRole)) return false;
 
-    carrier.carrierShieldActive = isCarrierShieldActive(carrier) && roleHasAutomaticCarrierShield(newRole);
+    carrier.carrierShieldActive = isCarrierShieldActive(carrier) && roleHasAutomaticShield(newRole);
     carrier.role = newRole;
     carrier.carrierRoleOptions = [];
     carrier.isHain = ALL_HAIN_ROLES.includes(newRole);
@@ -703,6 +737,11 @@ function transformCarrier(room, carrier, newRole) {
     carrier.ammo = newRole === 'Vigilante' ? 3 : 0;
     carrier.sheriffShotsUsed = 0;
     carrier.sheriffLastShotDay = 0;
+    carrier.ritualistRequiredGuesses = newRole === RITUALIST_ROLE
+        ? getRitualistTargetCount(room.startingPlayerCount || room.players.length)
+        : 0;
+    carrier.ritualistGuessedPlayerIds = [];
+    carrier.ritualistLastGuessNight = null;
     if (newRole === 'Müttefik') {
         carrier.allyTargetId = carrier.id;
         carrier.allyProtectUses = 0;
@@ -780,6 +819,13 @@ function sendGameState(roomCode) {
             mixerTargetId: player.role === MIXER_HAIN_ROLE ? player.mixerTargetId : null,
             sheriffShotsUsed: player.sheriffShotsUsed || 0,
             sheriffLastShotDay: player.sheriffLastShotDay || 0,
+            ritualistRoleOptions: player.role === RITUALIST_ROLE ? [...new Set(CONFIGURABLE_ROLE_NAMES)] : [],
+            ritualistCorrectGuesses: player.role === RITUALIST_ROLE
+                ? (player.ritualistGuessedPlayerIds || []).length
+                : 0,
+            ritualistRequiredGuesses: player.role === RITUALIST_ROLE ? player.ritualistRequiredGuesses || 0 : 0,
+            ritualistGuessedPlayerIds: player.role === RITUALIST_ROLE ? player.ritualistGuessedPlayerIds || [] : [],
+            ritualistGuessMade: player.role === RITUALIST_ROLE && player.ritualistLastGuessNight === room.dayNumber,
             isCultMember: isCultPlayer(player),
             hasCultGun: Boolean(player.hasCultGun),
             cultActionMode: getCultActionMode(player, room.dayNumber)
@@ -1006,6 +1052,9 @@ io.on('connection', (socket) => {
             p.carrierShieldActive = false;
             p.carrierRoleOptions = [];
             p.ninjaUsed = false;
+            p.ritualistRequiredGuesses = 0;
+            p.ritualistGuessedPlayerIds = [];
+            p.ritualistLastGuessNight = null;
             p.mixerTargetId = null;
             p.astralRoleLastUsedDay = {};
             p.roleRevealed = false;
@@ -1026,6 +1075,7 @@ io.on('connection', (socket) => {
         const cfg = room.settings;
         syncRoomBots(room, cfg.botCount);
         const totalPlayers = room.players.length;
+        room.startingPlayerCount = totalPlayers;
 
         const shuffled = shuffle([...room.players]);
         let idx = 0;
@@ -1074,6 +1124,11 @@ io.on('connection', (socket) => {
             player.isCult = CULT_ROLE_NAMES.includes(player.role);
             player.isCultConverted = false;
             player.hasCultGun = false;
+            player.ritualistRequiredGuesses = player.role === RITUALIST_ROLE
+                ? getRitualistTargetCount(totalPlayers)
+                : 0;
+            player.ritualistGuessedPlayerIds = [];
+            player.ritualistLastGuessNight = null;
         });
 
         const cultLeader = room.players.find(player => player.role === CULT_LEADER_ROLE && player.isAlive);
@@ -1142,8 +1197,8 @@ io.on('connection', (socket) => {
         if (outcome.revealTargetRole) target.roleRevealed = true;
         const announcement = outcome.revealTargetRole
             ? `💥 ${target.username} adlı oyuncuya ateş edildi! Kundakçı olduğu ortaya çıktı ancak hayatta kaldı.`
-            : isCarrierShieldActive(target)
-                ? `💥 ${target.username} adlı oyuncuya ateş edildi ancak hastalık kalkanı sayesinde hayatta kaldı.`
+            : hasAutomaticShield(target)
+                ? `💥 ${target.username} adlı oyuncuya ateş edildi ancak özel kalkanı sayesinde hayatta kaldı.`
             : `💥 ${target.username} gündüz vakti vurularak öldü!`;
         io.to(code).emit('systemAnnounce', announcement);
 
@@ -1235,6 +1290,11 @@ io.on('connection', (socket) => {
             actor.isSick = target.isSick;
             actor.carrierRoleOptions = target.carrierRoleOptions || [];
         }
+        if (stolenRole === RITUALIST_ROLE) {
+            actor.ritualistRequiredGuesses = target.ritualistRequiredGuesses;
+            actor.ritualistGuessedPlayerIds = [...(target.ritualistGuessedPlayerIds || [])];
+            actor.ritualistLastGuessNight = target.ritualistLastGuessNight;
+        }
         actor.ammo = stolenRole === 'Vigilante' ? 3 : 0;
         actor.sheriffShotsUsed = 0;
         actor.sheriffLastShotDay = 0;
@@ -1275,8 +1335,8 @@ io.on('connection', (socket) => {
         const target = room.players.find(p => p.id === targetId && p.isAlive);
         if (!target || target.id === hunter.id) return;
         hunter.hunterStandUsed = true;
-        if (target.role === 'Kundakçı' || isCarrierShieldActive(target)) {
-            const protection = target.role === 'Kundakçı' ? 'Kundakçı' : 'hastalık kalkanı';
+        if (hasAutomaticShield(target)) {
+            const protection = target.role === 'Kundakçı' ? 'Kundakçı' : isCarrierShieldActive(target) ? 'hastalık kalkanı' : 'özel kalkanı';
             io.to(code).emit('systemAnnounce', `🎯 [AVCI] ${hunter.username}, ${target.username} kişisine ateş etti ancak ${protection} sayesinde hedef ölmedi!`);
         } else {
             target.isAlive = false;
@@ -1498,6 +1558,9 @@ io.on('connection', (socket) => {
 
         const actor = room.players.find(p => p.id === socket.id);
         if (actor && (actor.isAlive || actor.role === 'Melek' || actor.role === 'Müttefik')) {
+            if (actor.role === RITUALIST_ROLE) {
+                return socket.emit('errorMsg', 'Ritüelci yalnızca rol tahmini yapabilir!');
+            }
             if (actor.hasCultGun) {
                 return socket.emit('errorMsg', 'Tarikat silahı sende olduğu için normal gece rolünü kullanamazsın!');
             }
@@ -1631,6 +1694,37 @@ io.on('connection', (socket) => {
             const targetName = targetId === 'IGNITE' ? '🔥 HERKESİ YAK' : (targetPlayer ? targetPlayer.username : 'Bilinmeyen');
             socket.emit('actionConfirmed', { targetId, targetName });
         }
+    });
+
+    socket.on('ritualistGuessAction', ({ roomCode, targetId, guessedRole } = {}) => {
+        const code = (roomCode || socket.roomCode || '').trim().toUpperCase();
+        const room = rooms[code];
+        const actor = room && room.players.find(player => player.id === socket.id);
+        if (!room || room.phase !== 'NIGHT' || !actor || !actor.isAlive || actor.role !== RITUALIST_ROLE) return;
+        if (actor.hasCultGun) return socket.emit('errorMsg', 'Tarikat silahı sende olduğu için Ritüelci yeteneğini kullanamazsın!');
+        if (actor.ritualistLastGuessNight === room.dayNumber) {
+            return socket.emit('errorMsg', 'Bu gece zaten bir rol tahmini yaptın!');
+        }
+        if (!CONFIGURABLE_ROLE_NAMES.includes(guessedRole)) {
+            return socket.emit('errorMsg', 'Tahmin edilecek geçerli bir rol seçmelisin!');
+        }
+
+        const target = room.players.find(player => player.id === targetId && player.isAlive && player.id !== actor.id);
+        if (!target) return socket.emit('errorMsg', 'Yalnızca başka bir yaşayan oyuncuyu hedefleyebilirsin!');
+        if ((actor.ritualistGuessedPlayerIds || []).includes(target.id)) {
+            return socket.emit('errorMsg', 'Bu oyuncunun rolünü daha önce doğru tahmin ettin!');
+        }
+
+        if (!room.nightActions) room.nightActions = {};
+        actor.ritualistLastGuessNight = room.dayNumber;
+        room.nightActions[actor.id] = {
+            role: RITUALIST_ROLE,
+            actionType: 'RITUALIST_GUESS',
+            targetId: target.id,
+            guessedRole
+        };
+        socket.emit('actionConfirmed', { targetId, targetName: target.username });
+        sendGameState(code);
     });
 
     socket.on('cleanerAction', ({ roomCode, targetId }) => {
@@ -1926,6 +2020,10 @@ function nextPhase(roomCode) {
     } else if (room.phase === 'NIGHT') {
         calculateNightResult(roomCode);
         updateNoDeathStreak(room);
+        if (getRitualistWinner(room.players)) {
+            checkWinCondition(roomCode);
+            return;
+        }
         if (room.noDeathDays >= 4) {
             clearInterval(room.timer);
             sendGameState(roomCode);
@@ -1984,6 +2082,23 @@ function addBotNightActions(room) {
             target = chooseTarget(bot);
             actionType = 'NINJA';
             bot.ninjaUsed = true;
+        } else if (bot.role === RITUALIST_ROLE && !bot.hasCultGun &&
+            bot.ritualistLastGuessNight !== room.dayNumber) {
+            const targets = alivePlayers.filter(player =>
+                player.id !== bot.id && !(bot.ritualistGuessedPlayerIds || []).includes(player.id)
+            );
+            target = targets.length > 0 ? targets[Math.floor(Math.random() * targets.length)] : null;
+            if (target) {
+                const guessedRole = CONFIGURABLE_ROLE_NAMES[Math.floor(Math.random() * CONFIGURABLE_ROLE_NAMES.length)];
+                bot.ritualistLastGuessNight = room.dayNumber;
+                room.nightActions[bot.id] = {
+                    role: RITUALIST_ROLE,
+                    actionType: 'RITUALIST_GUESS',
+                    targetId: target.id,
+                    guessedRole
+                };
+                return;
+            }
         } else if (bot.role === 'Doktor' || bot.role === 'Uyutucu' || bot.role === 'Tuzakçı Köylü' ||
             bot.role === 'Gözcü' || bot.role === 'Ayakçı' || bot.role === 'Kahin Köylü' ||
             bot.role === 'Gölge Ajanı' || bot.role === 'Düzenbaz Köylü') {
@@ -2193,7 +2308,7 @@ function calculateNightResult(roomCode) {
             return;
         }
 
-        if (target.role === 'Seri Katil' || target.role === LOST_HAIN_ROLE || target.role === 'Kundakçı') {
+        if (target.role === 'Seri Katil' || target.role === LOST_HAIN_ROLE || hasAutomaticShield(target)) {
             io.to(actor.id).emit('chatMessage', { sender: '[UYUTUCU]', text: '💤 Eylemin işlemedi.', type: 'green' });
             return;
         }
@@ -2227,8 +2342,8 @@ function calculateNightResult(roomCode) {
         if (!controlled || !controlled.isAlive) return;
         const wizard = room.players.find(p => p.id === actorId);
         const controlledAction = actions[controlled.id];
-        if (controlled.role === 'Kundakçı') {
-            io.to(controlled.id).emit('systemAnnounce', '[SİSTEM] 🪄 Bu gece gücün ele geçirildi. Kontrol edildin ama Kundakçı gücün etkisiz kaldı.');
+        if (hasAutomaticShield(controlled)) {
+            io.to(controlled.id).emit('systemAnnounce', '[SİSTEM] 🪄 Bu gece gücün ele geçirildi. Kontrol edildin ama kalkanın sayesinde etkilenmedin.');
             return;
         }
         if (NON_VISITING_ROLES.includes(controlled.role) || !controlledAction || controlledAction.actionType === 'WIZARD') {
@@ -2261,6 +2376,7 @@ function calculateNightResult(roomCode) {
     let shadowTarget = null, shadowActor = null;
     let kahinTarget = null, kahinActor = null;
     const detectiveQueries = [];
+    const ritualistGuesses = [];
     let cultTarget = null, cultActor = null, cultActionType = null;
     let ninjaTarget = null, ninjaActor = null;
     const trapTargets = new Set();
@@ -2293,7 +2409,9 @@ function calculateNightResult(roomCode) {
         const actor = room.players.find(p => p.id === actorId);
         const effectiveRole = act.controlledBy ? act.role : actor && actor.role;
         if (!actor || !actor.isAlive || !act.targetId || !trapTargets.has(act.targetId)) return;
-        if (!['Seri Katil', 'Kundakçı', LOST_HAIN_ROLE].includes(effectiveRole) && effectiveRole !== 'Tuzakçı Köylü' && !(effectiveRole === 'Ninja Hain' && act.actionType === 'NINJA')) {
+        if (!['Seri Katil', 'Kundakçı', LOST_HAIN_ROLE].includes(effectiveRole) &&
+            !roleHasAutomaticShield(effectiveRole) && !hasAutomaticShield(actor) &&
+            effectiveRole !== 'Tuzakçı Köylü' && !(effectiveRole === 'Ninja Hain' && act.actionType === 'NINJA')) {
             act.blockedByTrap = true;
             const trapper = trapActors.get(act.targetId);
             if (trapper) {
@@ -2320,7 +2438,7 @@ function calculateNightResult(roomCode) {
                 const visitor = room.players.find(p => p.id === actorId);
                 if (!visitor || visitor.id === tricksterActor.id || !visitor.isAlive) return;
                 if (act.targetId !== tricksterTarget || act.noVisit || act.blockedByTrap) return;
-                if (visitor.role === 'Kundakçı') return; // Arsonist ignores the reflection entirely
+                if (hasAutomaticShield(visitor)) return;
 
                 act.reflectedTargetId = visitor.id;
                 act.originalTargetId = act.targetId;
@@ -2356,6 +2474,11 @@ function calculateNightResult(roomCode) {
             actor.loverProtectUsed = true;
             const loverPartner = room.players.find(player => player.id === actor.loverPartnerId);
             if (loverPartner) loverPartner.loverProtectUsed = true;
+            return;
+        }
+
+        if (actor.role === RITUALIST_ROLE && act.actionType === 'RITUALIST_GUESS') {
+            ritualistGuesses.push({ actor, targetId: act.targetId, guessedRole: act.guessedRole });
             return;
         }
 
@@ -2539,9 +2662,9 @@ function calculateNightResult(roomCode) {
         const victim = room.players.find(p => p.id === targetId);
         if (!victim || !victim.isAlive) return;
 
-        const canKillKundakci = canRoleKillKundakci(effectiveRole, attacker.hasGun);
-        const isKundakciTarget = victim.role === 'Kundakçı' || isCarrierShieldActive(victim);
-        if (isKundakciTarget && !canKillKundakci) {
+        const canKillShieldedRole = canRoleKillShieldedRole(effectiveRole, attacker.hasGun);
+        const targetHasAutomaticShield = hasAutomaticShield(victim);
+        if (targetHasAutomaticShield && !canKillShieldedRole) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
             io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: 'Hedefinizi öldüremediniz.', type: 'green' });
             return;
@@ -2646,9 +2769,9 @@ function calculateNightResult(roomCode) {
     if (skTarget) processAttack(skActor, skTarget, 'Seri Katil', 'Seri Katil');
     if (ninjaActor && ninjaActor.isAlive && ninjaTarget) {
         const ninjaVictims = Object.entries(actions)
-            .filter(([actorId, act]) => actorId !== ninjaActor.id && act.targetId === ninjaTarget && !act.noVisit && act.role !== 'Kundakçı')
+            .filter(([actorId, act]) => actorId !== ninjaActor.id && act.targetId === ninjaTarget && !act.noVisit)
             .map(([actorId]) => room.players.find(p => p.id === actorId))
-            .filter(p => p && p.isAlive && !isCarrierShieldActive(p));
+            .filter(p => p && p.isAlive && !hasAutomaticShield(p));
         [...new Set(ninjaVictims)].forEach(victim => {
             victim.isAlive = false;
             const hiddenRole = false;
@@ -2656,8 +2779,8 @@ function calculateNightResult(roomCode) {
             killedList.push({ player: victim, killer: 'Ninja Hain', hiddenRole });
             checkGunPass(room, victim);
         });
-        emitRoleActionMessage(ninjaActor, `🌑 Seçtiğin evde ${ninjaVictims.length} ziyaretçiyi öldürdün. Kundakçı etkilenmedi.`);
-        io.to(ninjaActor.id).emit('chatMessage', { sender: '[NINJA HAIN]', text: `🌑 Seçtiğin evde ${ninjaVictims.length} ziyaretçiyi öldürdün. Kundakçı etkilenmedi.`, type: 'green' });
+        emitRoleActionMessage(ninjaActor, `🌑 Seçtiğin evde ${ninjaVictims.length} ziyaretçiyi öldürdün. Kalkanlı roller etkilenmedi.`);
+        io.to(ninjaActor.id).emit('chatMessage', { sender: '[NINJA HAIN]', text: `🌑 Seçtiğin evde ${ninjaVictims.length} ziyaretçiyi öldürdün. Kalkanlı roller etkilenmedi.`, type: 'green' });
     }
     if (hainActor && hainTarget) processAttack(hainActor, hainTarget, actions[hainActor.id]?.role === 'Gizleyici' ? 'Gizleyici' : 'Hainler', actions[hainActor.id]?.role || hainActor.role);
     if (lostHainActor && lostHainTarget) processAttack(lostHainActor, lostHainTarget, LOST_HAIN_ROLE, LOST_HAIN_ROLE);
@@ -2731,6 +2854,22 @@ function calculateNightResult(roomCode) {
         if (cleaner && cleaner.isAlive && target) {
             emitRoleActionMessage(cleaner, `${target.username} adlı kişinin evini temizledin.`);
         }
+    });
+
+    ritualistGuesses.forEach(({ actor, targetId, guessedRole }) => {
+        const target = room.players.find(player => player.id === targetId);
+        const result = recordRitualistGuess(actor, target, guessedRole);
+        let text;
+        if (result.result === 'correct') {
+            text = `🔮 ${target.username} kişisinin rolünü doğru tahmin ettin! İlerleme: ${result.correctCount}/${actor.ritualistRequiredGuesses}.`;
+        } else if (result.result === 'incorrect') {
+            text = `🔮 ${target ? target.username : 'Hedef'} kişisinin rolünü yanlış tahmin ettin.`;
+        } else if (result.result === 'already-guessed') {
+            text = '🔮 Bu oyuncunun rolünü daha önce doğru tahmin ettin.';
+        } else {
+            text = '🔮 Tahmin hedefi artık bulunamadı.';
+        }
+        io.to(actor.id).emit('chatMessage', { sender: '[RİTÜELCİ]', text, type: 'green' });
     });
 
     if (killedList.length === 0) {
@@ -2925,6 +3064,17 @@ function checkWinCondition(roomCode) {
     if (!room) return false;
 
     const alivePlayers = room.players.filter(p => p.isAlive);
+    const ritualistWinner = getRitualistWinner(room.players);
+    if (ritualistWinner) {
+        clearInterval(room.timer);
+        sendGameState(roomCode);
+        emitGameOver(roomCode, {
+            winner: 'RİTÜELCİ',
+            msg: `🔮 ${ritualistWinner.username} yeterli sayıda rolü doğru tahmin ederek Ritüelci olarak kazandı!`
+        });
+        return true;
+    }
+
     const aliveHain = alivePlayers.filter(p => !isCultPlayer(p) && p.role && ALL_HAIN_ROLES.includes(p.role) && ![LOST_HAIN_ROLE, ARAYA_SIZAN_ROLE].includes(p.role));
     const aliveLostHain = alivePlayers.filter(p => !isCultPlayer(p) && p.role === LOST_HAIN_ROLE);
     const aliveHainKoylu = alivePlayers.filter(isHainKoyluPlayer);
@@ -3055,8 +3205,12 @@ module.exports = {
     isCultConversionTarget,
     getCultWeaponRecipient,
     isCarrierShieldActive,
-    canRoleKillKundakci,
-    roleHasAutomaticCarrierShield,
+    hasAutomaticShield,
+    canRoleKillShieldedRole,
+    roleHasAutomaticShield,
+    getRitualistTargetCount,
+    recordRitualistGuess,
+    getRitualistWinner,
     getCleanedTargetIds,
     canSeeCleanedMarker,
     hideCleanedDeathRoles,
