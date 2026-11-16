@@ -289,7 +289,7 @@ function canAstralUseRole(player, roleName, dayNumber) {
 }
 
 function canAstralUseDetectiveCategory(roleName, category) {
-    return roleName !== 'Dedektif' || category === 'weapon';
+    return roleName !== 'Dedektif' || category == null || category === 'weapon';
 }
 
 function getAstralSources(room, actor) {

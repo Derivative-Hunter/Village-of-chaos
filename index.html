@@ -1718,7 +1718,7 @@
         const targetSelect = document.getElementById('astral-target-select');
         const detectiveNote = document.getElementById('astral-detective-note');
         sourceSelect.innerHTML = sourceRoles.length
-            ? sourceRoles.map(source => `<option value="${source.id}">${source.role} (${source.username})${source.role === 'Vigilante' ? ` · ${source.ammo} mermi` : ''}</option>`).join('')
+            ? sourceRoles.map(source => `<option value="${source.id}" data-role="${source.role}">${source.role} (${source.username})${source.role === 'Vigilante' ? ` · ${source.ammo} mermi` : ''}</option>`).join('')
             : '<option value="">Kullanılabilir ölü rol yok</option>';
         targetSelect.innerHTML = players.filter(player => player.isAlive)
             .map(player => `<option value="${player.id}">${player.username}</option>`).join('');
@@ -1734,12 +1734,12 @@
         const sourceId = document.getElementById('astral-source-select').value;
         const targetId = document.getElementById('astral-target-select').value;
         if (!sourceId || !targetId) return;
-        const source = latestPlayers.find(player => player.id === sourceId);
+        const sourceRole = document.getElementById('astral-source-select').selectedOptions[0]?.dataset.role;
         socket.emit('astralAction', {
             roomCode: currentRoomCode,
             sourceId,
             targetId,
-            category: source?.role === 'Dedektif' ? 'weapon' : null
+            category: sourceRole === 'Dedektif' ? 'weapon' : null
         });
     }
 
