@@ -203,6 +203,11 @@ function isCarrierShieldActive(player) {
     return Boolean(player && player.carrierShieldActive);
 }
 
+function canRoleKillKundakci(roleName, hasGun = false) {
+    return ['Gizleyici', 'Seri Katil', LOST_HAIN_ROLE].includes(roleName) ||
+        (roleName === TRIGGER_HAIN_ROLE && !hasGun);
+}
+
 function roleHasAutomaticCarrierShield(roleName) {
     return ROLE_TRAITS[roleName]?.automaticShield === true;
 }
@@ -260,8 +265,9 @@ function hasCultVictory(room, alivePlayers = room.players.filter(player => playe
     const aliveThreats = alivePlayers.filter(player => !isCultPlayer(player) && (
         isHainPlayer(player) || ['Seri Katil', 'Kundakçı'].includes(player.role)
     ));
+    const aliveTownLeader = alivePlayers.some(player => ['Şerif', 'Başkan'].includes(player.role));
     return aliveCult.length > 0 && aliveThreats.length === 0 &&
-        hasHainMajority(aliveCult.length, alivePlayers.length);
+        hasHainMajority(aliveCult.length, alivePlayers.length) && !aliveTownLeader;
 }
 
 function canSheriffShootOnDay(dayNumber) {
@@ -1178,7 +1184,7 @@ io.on('connection', (socket) => {
 
         actor.hasAssassinated = true;
 
-        if (target.role === guessedRole && !isCarrierShieldActive(target)) {
+        if (target.role === guessedRole) {
             target.isAlive = false;
             target.roleHidden = true;
             io.to(code).emit('systemAnnounce', `💀 [SUİKAST] ${target.username} gündüz vakti suikaste uğrayarak öldü! Rolü: GİZLİ`);
@@ -1187,8 +1193,6 @@ io.on('connection', (socket) => {
             actor.isAlive = false;
             io.to(code).emit('systemAnnounce', `💀 [SUİKAST] ${actor.username} yanlış tahminde bulunarak intihar etti! Rolü: Suikastçi`);
             checkGunPass(room, actor);
-        } else {
-            io.to(actor.id).emit('chatMessage', { sender: '[SUİKAST]', text: 'Hedefin hastalık kalkanı sayesinde hayatta kaldı.', type: 'green' });
         }
 
         propagateLoverDeaths(room);
@@ -1209,8 +1213,6 @@ io.on('connection', (socket) => {
         const target = room.players.find(p => p.id === targetId);
         if (!target || !target.isAlive || target.id === socket.id) return;
         if (target.hunterStand) return socket.emit('errorMsg', 'Avcı Köylü son direnişinde hedef alınamaz!');
-        if (isCarrierShieldActive(target)) return socket.emit('errorMsg', 'Hedef hastalık kalkanı sayesinde Hırsız tarafından öldürülemez!');
-
         actor.hasStolen = true;
         const stolenRole = target.role;
 
@@ -2537,15 +2539,8 @@ function calculateNightResult(roomCode) {
         const victim = room.players.find(p => p.id === targetId);
         if (!victim || !victim.isAlive) return;
 
-        if (isCarrierShieldActive(victim)) {
-            io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Hastalık kalkanı sayesinde saldırıdan korundun!');
-            io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: 'Hedefinizi öldüremediniz; hastalık kalkanı saldırıyı engelledi.', type: 'green' });
-            return;
-        }
-
-        const canKillKundakci = ['Gizleyici', 'Seri Katil', LOST_HAIN_ROLE].includes(effectiveRole) ||
-            (effectiveRole === TRIGGER_HAIN_ROLE && !attacker.hasGun);
-        const isKundakciTarget = victim.role === 'Kundakçı';
+        const canKillKundakci = canRoleKillKundakci(effectiveRole, attacker.hasGun);
+        const isKundakciTarget = victim.role === 'Kundakçı' || isCarrierShieldActive(victim);
         if (isKundakciTarget && !canKillKundakci) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
             io.to(attacker.id).emit('chatMessage', { sender: '[SİSTEM]', text: 'Hedefinizi öldüremediniz.', type: 'green' });
@@ -2635,8 +2630,7 @@ function calculateNightResult(roomCode) {
             .filter(([actorId, act]) => act.targetId && !act.noVisit && dousedPlayers.some(target => target.id === act.targetId) && actorId !== arsoActor.id)
             .map(([actorId]) => room.players.find(p => p.id === actorId))
             .filter(p => p && p.isAlive && p.id !== arsoActor.id);
-        const arsoVictims = [...new Set([...dousedPlayers, ...visitorsToDoused])]
-            .filter(player => !isCarrierShieldActive(player));
+        const arsoVictims = [...new Set([...dousedPlayers, ...visitorsToDoused])];
         arsoVictims.forEach(v => {
             v.isAlive = false;
             if (v.role === 'Avcı Köylü') {
@@ -3061,6 +3055,7 @@ module.exports = {
     isCultConversionTarget,
     getCultWeaponRecipient,
     isCarrierShieldActive,
+    canRoleKillKundakci,
     roleHasAutomaticCarrierShield,
     getCleanedTargetIds,
     canSeeCleanedMarker,
