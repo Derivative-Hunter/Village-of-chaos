@@ -889,6 +889,7 @@
         <div id="astral-tools" class="night-role-tools hidden">
             <select id="astral-source-select" aria-label="Astral için ölü rol seç"></select>
             <select id="astral-target-select" aria-label="Astral gücünün hedefi"></select>
+            <div id="astral-detective-note" class="hidden">Astral, Dedektifin yalnızca “Silah taşıyor mu?” sorgusunu kullanabilir.</div>
             <button class="btn-action-purple" onclick="useAstralPower()">✨ Astral Gücünü Kullan</button>
         </div>
         <div id="detective-tools" class="night-role-tools hidden">
@@ -1018,7 +1019,7 @@
         <div class="role-list-item"><strong>🔍 Gözcü:</strong> Gece seçtiği oyuncunun evine kimlerin gittiğini öğrenir.</div>
         <div class="role-list-item"><strong>🔮 Kahin Köylü:</strong> Seçtiği eve gelenlerin kim olduğunu değil, rollerini öğrenir; kimse gelmediyse bunu bildirir.</div>
         <div class="role-list-item"><strong>🕵️ Dedektif:</strong> Her gece başka bir yaşayan oyuncuyu dört kategoriden biriyle sorgular; sabah EVET/HAYIR yanıtı yalnızca kendisine gelir.</div>
-        <div class="role-list-item"><strong>✨ Astral:</strong> Ölü Doktor, Uyutucu, Tuzakçı Köylü, Vigilante, Düzenbaz Köylü, Ayakçı, Gözcü veya Kahin Köylü'nün gücünü kullanır. Aynı rolü yeniden kullanmak için bir tam gün bekler; Vigilante mermileri sınırlıdır. Aynı gece Necromancer'ın kullandığı rolü kullanamaz.</div>
+        <div class="role-list-item"><strong>✨ Astral:</strong> Ölü Doktor, Uyutucu, Tuzakçı Köylü, Vigilante, Düzenbaz Köylü, Ayakçı, Gözcü, Kahin Köylü veya Dedektif'in gücünü kullanır. Dedektif gücünde yalnızca “Silah taşıyor mu?” sorgusunu yapabilir. Aynı rolü yeniden kullanmak için bir tam gün bekler; Vigilante mermileri sınırlıdır. Aynı gece Necromancer'ın kullandığı rolü kullanamaz.</div>
         <div class="role-list-item"><strong>👟 Ayakçı:</strong> Gece seçtiği oyuncunun başka bir oyuncuyu ziyaret edip etmediğini ve hedefini öğrenir.</div>
         <div class="role-list-item"><strong>🔮 Medyum:</strong> Ölü oyuncuların sohbet mesajlarını duyabilir.</div>
         <div class="role-list-item"><strong>🕵️ Casus:</strong> Gündüz fısıltılarını gizlice görür. Gündüz seçerek iki kez gece aşıkların, hainlerin ve tarikatın mesajlarını gönderenleri görmeden dinleyebilir; bu durumda sohbet üyelerine dinlendikleri bildirilir.</div>
@@ -1053,7 +1054,7 @@
         <h3 style="color: #86efac; margin: 16px 0 10px;">🕯️ Tarikat Takımı</h3>
         <div class="role-list-item"><strong>🕯️ Tarikat Lideri:</strong> Tek gecelerde bir oyuncuya saldırır; çift gecelerde Köylü, Hırsız, Taşıyıcı veya Müttefik'i tarikata dönüştürmeye çalışır. Uygun değilse dönüşüm başarısız olur.</div>
         <div class="role-list-item"><strong>🕵️ Araya Sızan:</strong> Tarikat üyesidir; Hainler onu takım arkadaşı olarak görür, o da Hainleri görür ve Hain sohbetine katılır. Hain silahını alamaz. Tarikat silahı kendisine geçerse her gece saldırabilir.</div>
-        <div class="role-list-item"><strong>Tarikat silahı:</strong> Silah sahibi ölürse canlı dönüştürülmüş bir üyeye rastgele geçer; dönüştürülmüş üye yoksa Araya Sızan'a geçer. Silah sahibi normal gece rolünü kullanamaz. Silahı dönüştürülmüş biri taşıyorsa yalnız tek gecelerde saldırır. Tarikat, diğer tehditler yok edilip çoğunluğu elde ettiğinde kazanır.</div>
+        <div class="role-list-item"><strong>Tarikat silahı:</strong> Silah sahibi ölürse canlı dönüştürülmüş bir üyeye rastgele geçer; dönüştürülmüş üye yoksa Araya Sızan'a geçer. Silah sahibi normal gece rolünü kullanamaz. Silahı dönüştürülmüş biri taşıyorsa her gece saldırır. Tarikat, diğer tehditler yok edilip çoğunluğu elde ettiğinde kazanır.</div>
 
         <h3 style="color: #c084fc; margin: 16px 0 10px;">⚖️ Tarafsız (Neutral) Takımı</h3>
         <div class="role-list-item neutral"><strong>🎭 Jester:</strong> Gündüz oylamasıyla idam edilirse kendi özel zaferini kazanır.</div>
@@ -1061,7 +1062,7 @@
         <div class="role-list-item neutral"><strong>🔥 Kundakçı:</strong> Geceleri bir oyuncuyu gizlice yağlar; yağlanan evleri ve o evlere gidenleri ateşe verir. Yağlarken gelen Seri Katil veya Gizleyici saldırısı Kundakçıyı öldürür; Kundakçı yakıyorsa karşılıklı saldırıda hayatta kalır ve Gizleyici veya Seri Katil ölür.</div>
         <div class="role-list-item neutral"><strong>🎭 Hırsız:</strong> Gündüz yaşayan bir oyuncuyu öldürür ve onun rolünü çalar.</div>
         <div class="role-list-item neutral"><strong>🤝 Müttefik:</strong> İlk gece bir oyuncu seçer; seçim yapmazsa rastgele bir oyuncu belirlenir. Seçtiği kişiyi ilk gece dahil toplam iki kez saldırılardan korur. Öldükten sonra da yalnızca seçtiği kişiyi koruyabilir; kendisini koruyamaz. Rolü Hırsız tarafından alınırsa koruma yapamaz. Müttefiki oyun sonunda hayattaysa kendisi de kazanır.</div>
-        <div class="role-list-item neutral"><strong>🦠 Taşıyıcı (Hastalıklı):</strong> Oyuna hastalıklı başlar. Gece ziyaret ettiği ve kendisini ziyaret eden oyunculara hastalık bulaştırır. Tüm yaşayan oyuncular hastalandığında, oyunda olmayan bir role dönüşür.</div>
+        <div class="role-list-item neutral"><strong>🦠 Taşıyıcı (Hastalıklı):</strong> Oyuna hastalıklı başlar. Gece ziyaret ettiği ve kendisini ziyaret eden oyunculara hastalık bulaştırır. Tüm yaşayan oyuncular hastalandığında kalkan kazanır ve yalnızca hayattaysa gündüz oyunda olmayan bir role dönüşebilir. Dönüştüğü rol otomatik kalkanlı değilse kalkanını kaybeder.</div>
         <button class="btn-gold" style="margin-top: 15px;" onclick="closeRoleModal()">Kapat</button>
     </div>
 </div>
@@ -1293,7 +1294,10 @@
     });
 
     socket.on('carrierRoleChoice', ({ roles }) => {
-        setupCarrierTools(roles || []);
+        const carrier = latestPlayers.find(player => player.id === socket.id);
+        if (carrier?.isAlive && carrier.role === 'Taşıyıcı (Hastalıklı)') {
+            setupCarrierTools(roles || []);
+        }
     });
 
     socket.on('gameStarted', () => {
@@ -1432,7 +1436,7 @@
             if (myRole === 'Vigilante' && amIAlive && !hasCultGun) vigilantePassBtn.classList.remove('hidden');
             if ((myRole === 'Jester' || myRole === 'Müttefik') && amIAlive && !hasCultGun) nightActionPassBtn.classList.remove('hidden');
         }
-        if ((phase === 'DAY' || phase === 'VOTE') && myRole === 'Taşıyıcı (Hastalıklı)' && carrierRoleOptions && carrierRoleOptions.length > 0) {
+        if ((phase === 'DAY' || phase === 'VOTE') && amIAlive && myRole === 'Taşıyıcı (Hastalıklı)' && carrierRoleOptions && carrierRoleOptions.length > 0) {
             setupCarrierTools(carrierRoleOptions);
         }
 
@@ -1712,18 +1716,31 @@
     function setupAstralTools(sourceRoles, players) {
         const sourceSelect = document.getElementById('astral-source-select');
         const targetSelect = document.getElementById('astral-target-select');
+        const detectiveNote = document.getElementById('astral-detective-note');
         sourceSelect.innerHTML = sourceRoles.length
             ? sourceRoles.map(source => `<option value="${source.id}">${source.role} (${source.username})${source.role === 'Vigilante' ? ` · ${source.ammo} mermi` : ''}</option>`).join('')
             : '<option value="">Kullanılabilir ölü rol yok</option>';
         targetSelect.innerHTML = players.filter(player => player.isAlive)
             .map(player => `<option value="${player.id}">${player.username}</option>`).join('');
+        const updateDetectiveNote = () => {
+            const selectedSource = sourceRoles.find(source => source.id === sourceSelect.value);
+            detectiveNote.classList.toggle('hidden', !selectedSource || selectedSource.role !== 'Dedektif');
+        };
+        sourceSelect.onchange = updateDetectiveNote;
+        updateDetectiveNote();
     }
 
     function useAstralPower() {
         const sourceId = document.getElementById('astral-source-select').value;
         const targetId = document.getElementById('astral-target-select').value;
         if (!sourceId || !targetId) return;
-        socket.emit('astralAction', { roomCode: currentRoomCode, sourceId, targetId });
+        const source = latestPlayers.find(player => player.id === sourceId);
+        socket.emit('astralAction', {
+            roomCode: currentRoomCode,
+            sourceId,
+            targetId,
+            category: source?.role === 'Dedektif' ? 'weapon' : null
+        });
     }
 
     function setDuyucuChatMode(mode) {
