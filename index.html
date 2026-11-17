@@ -724,7 +724,7 @@
             <div class="role-category neutral">
                 <h5>⚖️ Tarafsız · Normal Tarafsızlar</h5>
                 <div class="setting-grid">
-                    <div class="setting-item"><label>Rol sayısı (Jester / Hırsız / Müttefik / Taşıyıcı / Ritüelci):</label><input type="number" id="cfg-normal-tarafsiz" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                    <div class="setting-item"><label>Rol sayısı (Jester / Hırsız / Müttefik / Taşıyıcı / Ritüelci / Cellat):</label><input type="number" id="cfg-normal-tarafsiz" value="0" min="0" max="6" onchange="emitSettings()"></div>
                 </div>
             </div>
             <div class="role-category town">
@@ -800,6 +800,7 @@
                 <div class="setting-item"><label>Müttefik</label><input type="number" id="cfg-role-muttefik" data-role="Müttefik" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Taşıyıcı (Hastalıklı)</label><input type="number" id="cfg-role-tasiyici" data-role="Taşıyıcı (Hastalıklı)" value="0" min="0" max="1" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Ritüelci</label><input type="number" id="cfg-role-rituelci" data-role="Ritüelci" value="0" min="0" max="1" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Cellat</label><input type="number" id="cfg-role-cellat" data-role="Cellat" value="0" min="0" max="1" onchange="emitSettings()"></div>
             </div>
         </div>
 
@@ -1011,6 +1012,7 @@
             <option value="Müttefik">Müttefik</option>
             <option value="Taşıyıcı (Hastalıklı)">Taşıyıcı (Hastalıklı)</option>
             <option value="Ritüelci">Ritüelci</option>
+            <option value="Cellat">Cellat</option>
         </select>
         <button class="btn-danger" onclick="confirmSuikast()">Ateş Et!</button>
         <button class="btn-gold" onclick="closeSuikastModal()">İptal</button>
@@ -1069,6 +1071,7 @@
         <div class="role-list-item neutral"><strong>🤝 Müttefik:</strong> İlk gece bir oyuncu seçer; seçim yapmazsa rastgele bir oyuncu belirlenir. Seçtiği kişiyi ilk gece dahil toplam iki kez saldırılardan korur. Öldükten sonra da yalnızca seçtiği kişiyi koruyabilir; kendisini koruyamaz. Rolü Hırsız tarafından alınırsa koruma yapamaz. Müttefiki oyun sonunda hayattaysa kendisi de kazanır.</div>
         <div class="role-list-item neutral"><strong>🦠 Taşıyıcı (Hastalıklı):</strong> Oyuna hastalıklı başlar. Gece ziyaret ettiği ve kendisini ziyaret eden oyunculara hastalık bulaştırır. Tüm yaşayan oyuncular hastalandığında kalkan kazanır ve yalnızca hayattaysa gündüz oyunda olmayan bir role dönüşebilir. Dönüştüğü rol otomatik kalkanlı değilse kalkanını kaybeder.</div>
         <div class="role-list-item neutral"><strong>🔮 Ritüelci:</strong> Her gece yaşayan başka bir oyuncunun rolünü tahmin eder. 7 veya daha az oyuncuda 2, 8–11 oyuncuda 3, 12 veya daha fazla oyuncuda 4 farklı oyuncuyu doğru tahmin ederse kazanır. Her gece bir tahmin hakkı vardır; yanlış tahmin yalnızca kendisine bildirilir. Kundakçı gibi otomatik kalkanı sayesinde uyutulamaz, tuzaklara ve Düzenbaz'ın yansıtmasına yakalanmaz; gözlem ve takip raporlarında görünmez.</div>
+        <div class="role-list-item neutral"><strong>⚖️ Cellat:</strong> Oyun başında gizli bir hedef alır. Hedefini gündüz oylamasıyla astırırsa, kendisi hayattaysa anında kazanır. Hedefi başka bir şekilde ölürse hedefini kaybeder ve Jester gibi kendini astırmaya çalışır.</div>
         <button class="btn-gold" style="margin-top: 15px;" onclick="closeRoleModal()">Kapat</button>
     </div>
 </div>
@@ -1292,7 +1295,7 @@
         badge.innerText = role;
         if (isHain || (role && ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'].includes(role))) {
             badge.className = 'role-pill Hain';
-        } else if (['Seri Katil', 'Jester', 'Hırsız', 'Kundakçı', 'Müttefik', 'Taşıyıcı (Hastalıklı)', 'Ritüelci'].includes(role)) {
+        } else if (['Seri Katil', 'Jester', 'Hırsız', 'Kundakçı', 'Müttefik', 'Taşıyıcı (Hastalıklı)', 'Ritüelci', 'Cellat'].includes(role)) {
             badge.className = 'role-pill Neutral';
         } else {
             badge.className = 'role-pill Town';
@@ -1314,7 +1317,7 @@
         loadNotes();
     });
 
-    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, astralTargets, phase, timeLeft, dayNumber, defendantId, hasGun, hasCultGun, cultActionMode, isCultMember, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, triggerHainTargetRole, spyListenUses, spyListenChoiceMade, ritualistRoleOptions, ritualistCorrectGuesses, ritualistRequiredGuesses, ritualistGuessedPlayerIds, ritualistGuessMade, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions, mixerTargetId, sheriffShotsUsed, sheriffLastShotDay }) => {
+    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, astralTargets, phase, timeLeft, dayNumber, defendantId, hasGun, hasCultGun, cultActionMode, isCultMember, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, triggerHainTargetRole, executionerTargetName, executionerTargetDead, spyListenUses, spyListenChoiceMade, ritualistRoleOptions, ritualistCorrectGuesses, ritualistRequiredGuesses, ritualistGuessedPlayerIds, ritualistGuessMade, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions, mixerTargetId, sheriffShotsUsed, sheriffLastShotDay }) => {
         players.forEach(player => {
             if (myRole === 'Gölge Ajanı' && player.shadowRole) knownShadowRoles[player.id] = player.shadowRole;
         });
@@ -1327,6 +1330,11 @@
             triggerHainTargetNotice.innerText = triggerHainTargetRole
                 ? `Gizli hedef rolün: ${triggerHainTargetRole}`
                 : 'Yaşayan hain olmayan hedef rol bulunmuyor.';
+            triggerHainTargetNotice.classList.remove('hidden');
+        } else if (myRole === 'Cellat') {
+            triggerHainTargetNotice.innerText = executionerTargetDead
+                ? `Cellat hedefin ${executionerTargetName || 'öldü'}. Şimdi Jester gibi kendini astırmaya çalış!`
+                : `Cellat hedefin: ${executionerTargetName || 'Belirlenemedi'}. Onu gündüz astır!`;
             triggerHainTargetNotice.classList.remove('hidden');
         } else {
             triggerHainTargetNotice.classList.add('hidden');
@@ -1504,7 +1512,7 @@
                             actionBtnHtml = `<button class="card-btn btn-action-purple" onclick="ritualistGuess('${p.id}')">🔮 Rol Tahmin Et</button>`;
                         } else if (myRole === 'Tetikçi Hain' && amIAlive && !hasGun && !hasCultGun && p.isAlive && !isMe && triggerHainTargetRole) {
                             actionBtnHtml = `<button class="card-btn btn-action-purple" onclick="handleNightAction('${p.id}', 'TRIGGER_HAIN')">🎯 Rol Tahmin Et</button>`;
-                        } else if (((amIAlive && myRole !== 'Melek') || (myRole === 'Melek' && !amIAlive) || canDeadAllyProtect) && !hasCultGun && !['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü', 'Şerif', 'Araya Sızan', 'Ritüelci'].includes(myRole) && !(myRole === 'Tetikçi Hain' && !hasGun) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
+                        } else if (((amIAlive && myRole !== 'Melek') || (myRole === 'Melek' && !amIAlive) || canDeadAllyProtect) && !hasCultGun && !['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Avcı Köylü', 'Şerif', 'Araya Sızan', 'Ritüelci', 'Cellat'].includes(myRole) && !(myRole === 'Tetikçi Hain' && !hasGun) && !(myRole === 'Suikastçi' && !hasGun) && !(myRole === 'Büyücü Hain' && !hasGun)) {
                             let btnLabel = '🎯 Eylem';
                             if (myRole === 'Doktor' || myRole === 'Melek') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
                             else if (myRole === 'Müttefik') btnLabel = dayNumber === 1 ? '🤝 Müttefikini Seç' : '🛡️ Müttefikini Koru';

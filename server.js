@@ -15,6 +15,7 @@ app.get('/', (req, res) => {
 
 const rooms = {};
 const RITUALIST_ROLE = 'Ritüelci';
+const EXECUTIONER_ROLE = 'Cellat';
 
 const ROLE_CATEGORIES = {
     town: {
@@ -29,7 +30,7 @@ const ROLE_CATEGORIES = {
     },
     neutral: {
         'Silahlı Tarafsızlar': ['Kundakçı', 'Seri Katil'],
-        'Normal Tarafsızlar': ['Jester', 'Hırsız', 'Müttefik', 'Taşıyıcı (Hastalıklı)', RITUALIST_ROLE]
+        'Normal Tarafsızlar': ['Jester', 'Hırsız', 'Müttefik', 'Taşıyıcı (Hastalıklı)', RITUALIST_ROLE, EXECUTIONER_ROLE]
     },
     cult: {
         'Tarikat Takımı': ['Tarikat Lideri', 'Araya Sızan']
@@ -55,8 +56,8 @@ const CARRIER_ROLE = 'Taşıyıcı (Hastalıklı)';
 const isHainPlayer = player => Boolean(player && (player.role === ARAYA_SIZAN_ROLE || (!player.isCult && (player.isHain || ALL_HAIN_ROLES.includes(player.role)))));
 const isCultPlayer = player => Boolean(player && player.isCult);
 const isCountedHain = player => Boolean(isHainPlayer(player) && ![LOST_HAIN_ROLE, ARAYA_SIZAN_ROLE].includes(player.role));
-const NON_VISITING_ROLES = ['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Jester'];
-const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', 'Jester', 'Hırsız', 'Müttefik', CARRIER_ROLE, RITUALIST_ROLE];
+const NON_VISITING_ROLES = ['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Jester', EXECUTIONER_ROLE];
+const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', 'Jester', 'Hırsız', 'Müttefik', CARRIER_ROLE, RITUALIST_ROLE, EXECUTIONER_ROLE];
 
 const roleNames = group => Object.values(group).flat();
 const TOWN_ROLES = ['Düz Köylü', ...roleNames(ROLE_CATEGORIES.town)];
@@ -419,6 +420,28 @@ function getTriggerHainTargetCandidates(players, trigger) {
     );
 }
 
+function getExecutionerTargetCandidates(players, executioner) {
+    return players.filter(player => player.isAlive && player.id !== executioner.id);
+}
+
+function chooseExecutionerTarget(players, executioner) {
+    const candidates = getExecutionerTargetCandidates(players, executioner);
+    const target = candidates[Math.floor(Math.random() * candidates.length)];
+    executioner.executionerTargetId = target ? target.id : null;
+}
+
+function getExecutionerWinner(players, hangedPlayerId) {
+    const hangedPlayer = players.find(player => player.id === hangedPlayerId);
+    if (!hangedPlayer) return null;
+
+    return players.find(player => {
+        if (player.role !== EXECUTIONER_ROLE) return false;
+        const target = players.find(candidate => candidate.id === player.executionerTargetId);
+        return (player.isAlive && player.executionerTargetId === hangedPlayerId) ||
+            (player.id === hangedPlayerId && !player.isAlive && target && !target.isAlive);
+    }) || null;
+}
+
 function chooseTriggerHainTarget(room, trigger) {
     const candidates = getTriggerHainTargetCandidates(room.players, trigger);
     const target = candidates[Math.floor(Math.random() * candidates.length)];
@@ -488,6 +511,7 @@ function createBotPlayer(index) {
         spyListenChoiceDay: 0,
         triggerHainTargetId: null,
         triggerHainTargetRole: null,
+        executionerTargetId: null,
         roleHidden: false,
         hunterStand: false,
         hunterStandUsed: false,
@@ -742,6 +766,8 @@ function transformCarrier(room, carrier, newRole) {
         : 0;
     carrier.ritualistGuessedPlayerIds = [];
     carrier.ritualistLastGuessNight = null;
+    carrier.executionerTargetId = null;
+    if (newRole === EXECUTIONER_ROLE) chooseExecutionerTarget(room.players, carrier);
     if (newRole === 'Müttefik') {
         carrier.allyTargetId = carrier.id;
         carrier.allyProtectUses = 0;
@@ -826,6 +852,11 @@ function sendGameState(roomCode) {
             ritualistRequiredGuesses: player.role === RITUALIST_ROLE ? player.ritualistRequiredGuesses || 0 : 0,
             ritualistGuessedPlayerIds: player.role === RITUALIST_ROLE ? player.ritualistGuessedPlayerIds || [] : [],
             ritualistGuessMade: player.role === RITUALIST_ROLE && player.ritualistLastGuessNight === room.dayNumber,
+            executionerTargetName: player.role === EXECUTIONER_ROLE
+                ? room.players.find(candidate => candidate.id === player.executionerTargetId)?.username || null
+                : null,
+            executionerTargetDead: player.role === EXECUTIONER_ROLE &&
+                Boolean(room.players.find(candidate => candidate.id === player.executionerTargetId && !candidate.isAlive)),
             isCultMember: isCultPlayer(player),
             hasCultGun: Boolean(player.hasCultGun),
             cultActionMode: getCultActionMode(player, room.dayNumber)
@@ -900,6 +931,7 @@ io.on('connection', (socket) => {
             shadowRole: null,
             triggerHainTargetId: null,
             triggerHainTargetRole: null,
+            executionerTargetId: null,
             spyListenUses: 2,
             spyListenTonight: false,
             spyListenChoiceDay: 0,
@@ -955,6 +987,7 @@ io.on('connection', (socket) => {
             shadowRole: null,
             triggerHainTargetId: null,
             triggerHainTargetRole: null,
+            executionerTargetId: null,
             spyListenUses: 2,
             spyListenTonight: false,
             spyListenChoiceDay: 0,
@@ -1032,6 +1065,7 @@ io.on('connection', (socket) => {
             p.shadowRole = null;
             p.triggerHainTargetId = null;
             p.triggerHainTargetRole = null;
+            p.executionerTargetId = null;
             p.spyListenUses = 2;
             p.spyListenTonight = false;
             p.spyListenChoiceDay = 0;
@@ -1129,7 +1163,11 @@ io.on('connection', (socket) => {
                 : 0;
             player.ritualistGuessedPlayerIds = [];
             player.ritualistLastGuessNight = null;
+            player.executionerTargetId = null;
         });
+
+        room.players.filter(player => player.role === EXECUTIONER_ROLE)
+            .forEach(executioner => chooseExecutionerTarget(room.players, executioner));
 
         const cultLeader = room.players.find(player => player.role === CULT_LEADER_ROLE && player.isAlive);
         if (cultLeader) cultLeader.hasCultGun = true;
@@ -1295,6 +1333,7 @@ io.on('connection', (socket) => {
             actor.ritualistGuessedPlayerIds = [...(target.ritualistGuessedPlayerIds || [])];
             actor.ritualistLastGuessNight = target.ritualistLastGuessNight;
         }
+        actor.executionerTargetId = stolenRole === EXECUTIONER_ROLE ? target.executionerTargetId : null;
         actor.ammo = stolenRole === 'Vigilante' ? 3 : 0;
         actor.sheriffShotsUsed = 0;
         actor.sheriffLastShotDay = 0;
@@ -1597,6 +1636,7 @@ io.on('connection', (socket) => {
             }
             if (['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Avcı Köylü', 'Şerif'].includes(actor.role)) return;
             if (actor.role === 'Hırsız') return socket.emit('errorMsg', 'Hırsız gece eylemi yapamaz!');
+            if (actor.role === EXECUTIONER_ROLE) return;
             if (actor.role === 'Necromancer' && !actor.hasGun) {
                 return socket.emit('errorMsg', 'Silahın yoksa Necromancer olarak yalnızca ölü rol gücünü kullanabilirsin!');
             }
@@ -2237,6 +2277,20 @@ function evaluateJudgmentResult(roomCode) {
             
             checkGunPass(room, defendant);
             propagateLoverDeaths(room);
+
+            const executionerWinner = getExecutionerWinner(room.players, defendant.id);
+            if (executionerWinner) {
+                clearInterval(room.timer);
+                sendGameState(roomCode);
+                const wonByTargetExecution = executionerWinner.isAlive;
+                emitGameOver(roomCode, {
+                    winner: 'CELLAT',
+                    msg: wonByTargetExecution
+                        ? `⚖️ ${executionerWinner.username} hedefini astırdı ve Cellat olarak kazandı!`
+                        : `⚖️ Hedefi öldükten sonra kendini astıran ${executionerWinner.username}, Cellat olarak kazandı!`
+                });
+                return;
+            }
 
             if (defendant.role === 'Jester') {
                 clearInterval(room.timer);
@@ -3211,6 +3265,8 @@ module.exports = {
     getRitualistTargetCount,
     recordRitualistGuess,
     getRitualistWinner,
+    getExecutionerTargetCandidates,
+    getExecutionerWinner,
     getCleanedTargetIds,
     canSeeCleanedMarker,
     hideCleanedDeathRoles,
