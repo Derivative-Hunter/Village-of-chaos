@@ -16,6 +16,8 @@ app.get('/', (req, res) => {
 const rooms = {};
 const RITUALIST_ROLE = 'Ritüelci';
 const EXECUTIONER_ROLE = 'Cellat';
+const EZICI_PATRON_ROLE = 'Ezici Patron';
+const EZICI_PATRON_MAX_STAGE = 5;
 
 const ROLE_CATEGORIES = {
     town: {
@@ -29,7 +31,7 @@ const ROLE_CATEGORIES = {
         'Hain Köylü': ['Hain Köylü']
     },
     neutral: {
-        'Silahlı Tarafsızlar': ['Kundakçı', 'Seri Katil'],
+        'Silahlı Tarafsızlar': ['Kundakçı', 'Seri Katil', EZICI_PATRON_ROLE],
         'Normal Tarafsızlar': ['Jester', 'Hırsız', 'Müttefik', 'Taşıyıcı (Hastalıklı)', RITUALIST_ROLE, EXECUTIONER_ROLE]
     },
     cult: {
@@ -57,7 +59,7 @@ const isHainPlayer = player => Boolean(player && (player.role === ARAYA_SIZAN_RO
 const isCultPlayer = player => Boolean(player && player.isCult);
 const isCountedHain = player => Boolean(isHainPlayer(player) && ![LOST_HAIN_ROLE, ARAYA_SIZAN_ROLE].includes(player.role));
 const NON_VISITING_ROLES = ['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Hırsız', 'Jester', EXECUTIONER_ROLE];
-const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', 'Jester', 'Hırsız', 'Müttefik', CARRIER_ROLE, RITUALIST_ROLE, EXECUTIONER_ROLE];
+const NEUTRAL_ROLES = ['Kundakçı', 'Seri Katil', EZICI_PATRON_ROLE, 'Jester', 'Hırsız', 'Müttefik', CARRIER_ROLE, RITUALIST_ROLE, EXECUTIONER_ROLE];
 
 const roleNames = group => Object.values(group).flat();
 const TOWN_ROLES = ['Düz Köylü', ...roleNames(ROLE_CATEGORIES.town)];
@@ -102,7 +104,7 @@ function pickRandomRoleSet(rolePool, count, usedRoles = new Set()) {
     return available.slice(0, Math.min(targetCount, available.length));
 }
 
-function canRoleUseAttack(roleName, hasGun) {
+function canRoleUseAttack(roleName, hasGun, eziciPatronStage = 1) {
     if (!roleName) return false;
     const attackRoles = new Set([
         'Gizleyici',
@@ -118,10 +120,12 @@ function canRoleUseAttack(roleName, hasGun) {
         'Ninja Hain',
         'Kayıp Hain',
         'Seri Katil',
-        'Vigilante'
+        'Vigilante',
+        EZICI_PATRON_ROLE
     ]);
 
     if (!attackRoles.has(roleName)) return false;
+    if (roleName === EZICI_PATRON_ROLE) return eziciPatronStage >= 2;
     if (roleName === 'Duyucu Hain' || roleName === TRIGGER_HAIN_ROLE || roleName === 'Gölge Ajanı' || roleName === 'Susturucu' || roleName === 'Necromancer' || roleName === 'Büyücü Hain' || roleName === MIXER_HAIN_ROLE) {
         return Boolean(hasGun);
     }
@@ -162,6 +166,7 @@ function getDetectiveAnswer(target, category) {
 
     const hasWeapon = target.role === 'Vigilante' || target.role === 'Şerif' || target.role === 'Kundakçı' ||
         target.role === 'Seri Katil' || target.role === LOST_HAIN_ROLE ||
+        (target.role === EZICI_PATRON_ROLE && getEziciPatronStage(target) >= 2) ||
         (isHainPlayer(target) && target.hasGun);
     const isProtectorOrBlocker = DETECTIVE_PROTECTOR_ROLES.includes(target.role);
     const isInformationRole = DETECTIVE_INFORMATION_ROLES.includes(target.role);
@@ -207,16 +212,42 @@ function isCarrierShieldActive(player) {
 }
 
 function hasAutomaticShield(player) {
-    return Boolean(player && (isCarrierShieldActive(player) || roleHasAutomaticShield(player.role)));
+    return Boolean(player && (isCarrierShieldActive(player) || roleHasAutomaticShield(player.role, player.eziciPatronStage)));
 }
 
-function canRoleKillShieldedRole(roleName, hasGun = false) {
+function canRoleKillShieldedRole(roleName, hasGun = false, eziciPatronStage = 1) {
     return ['Gizleyici', 'Seri Katil', LOST_HAIN_ROLE].includes(roleName) ||
-        (roleName === TRIGGER_HAIN_ROLE && !hasGun);
+        (roleName === TRIGGER_HAIN_ROLE && !hasGun) ||
+        (roleName === EZICI_PATRON_ROLE && eziciPatronStage >= 3);
 }
 
-function roleHasAutomaticShield(roleName) {
-    return ROLE_TRAITS[roleName]?.automaticShield === true;
+function roleHasAutomaticShield(roleName, eziciPatronStage = 1) {
+    return ROLE_TRAITS[roleName]?.automaticShield === true ||
+        (roleName === EZICI_PATRON_ROLE && eziciPatronStage >= 4);
+}
+
+function getEziciPatronStage(player) {
+    if (!player || player.role !== EZICI_PATRON_ROLE) return 1;
+    return Math.min(EZICI_PATRON_MAX_STAGE, Math.max(1, parseInt(player.eziciPatronStage, 10) || 1));
+}
+
+function advanceEziciPatronStage(player, amount = 1) {
+    if (!player || player.role !== EZICI_PATRON_ROLE) return getEziciPatronStage(player);
+    player.eziciPatronStage = Math.min(
+        EZICI_PATRON_MAX_STAGE,
+        getEziciPatronStage(player) + Math.max(0, parseInt(amount, 10) || 0)
+    );
+    return player.eziciPatronStage;
+}
+
+function advanceEziciPatronAfterNight(player, startingPlayerCount, killsThisNight) {
+    const stage = getEziciPatronStage(player);
+    if (!player || player.role !== EZICI_PATRON_ROLE || !player.isAlive) return stage;
+    if (stage === 1 || startingPlayerCount < 10) return advanceEziciPatronStage(player);
+    if (startingPlayerCount >= 10 && killsThisNight > 0) {
+        return advanceEziciPatronStage(player, killsThisNight);
+    }
+    return stage;
 }
 
 function getRitualistTargetCount(playerCount) {
@@ -298,7 +329,7 @@ function hideCleanedDeathRoles(players, killedList, cleanedTargetIds) {
 function hasCultVictory(room, alivePlayers = room.players.filter(player => player.isAlive)) {
     const aliveCult = alivePlayers.filter(isCultPlayer);
     const aliveThreats = alivePlayers.filter(player => !isCultPlayer(player) && (
-        isHainPlayer(player) || ['Seri Katil', 'Kundakçı'].includes(player.role)
+        isHainPlayer(player) || ['Seri Katil', 'Kundakçı', EZICI_PATRON_ROLE].includes(player.role)
     ));
     const aliveTownLeader = alivePlayers.some(player => ['Şerif', 'Başkan'].includes(player.role));
     return aliveCult.length > 0 && aliveThreats.length === 0 &&
@@ -361,11 +392,14 @@ function isWizardControlAction(action) {
 }
 
 function canBePutToSleep(target, action) {
-    return !(hasAutomaticShield(target) || (target && target.role === 'Büyücü Hain' && isWizardControlAction(action)));
+    return !(hasAutomaticShield(target) ||
+        (target && target.role === EZICI_PATRON_ROLE && getEziciPatronStage(target) >= 3) ||
+        (target && target.role === 'Büyücü Hain' && isWizardControlAction(action)));
 }
 
 function canWizardTarget(actor, controlled, target) {
-    return Boolean(target && target.id !== controlled.id);
+    return Boolean(target && target.id !== controlled.id &&
+        !(controlled.role === EZICI_PATRON_ROLE && getEziciPatronStage(controlled) >= 4));
 }
 
 function getVisibleShadowRole(viewer, target) {
@@ -495,6 +529,7 @@ function createBotPlayer(index) {
         isBot: true,
         isHost: false,
         role: null,
+        eziciPatronStage: 1,
         isAlive: true,
         hasGun: false,
         ammo: 0,
@@ -699,7 +734,10 @@ function assignGuns(room) {
 
 function getUnusedRoleOptions(room) {
     const usedRoles = new Set(room.players.map(player => player.role).filter(Boolean));
-    return CONFIGURABLE_ROLE_NAMES.filter(roleName => roleName !== CARRIER_ROLE && !CULT_ROLE_NAMES.includes(roleName) && !usedRoles.has(roleName));
+    return CONFIGURABLE_ROLE_NAMES.filter(roleName =>
+        roleName !== CARRIER_ROLE && roleName !== EZICI_PATRON_ROLE &&
+        !CULT_ROLE_NAMES.includes(roleName) && !usedRoles.has(roleName)
+    );
 }
 
 function spreadSickness(room) {
@@ -810,7 +848,8 @@ function sendGameState(roomCode) {
             players: playerListState,
             wizardTargets: player.role === 'Büyücü Hain'
                 ? room.players
-                    .filter(p => p.isAlive && p.id !== player.id && !isHainPlayer(p))
+                    .filter(p => p.isAlive && p.id !== player.id && !isHainPlayer(p) &&
+                        !(p.role === EZICI_PATRON_ROLE && getEziciPatronStage(p) >= 4))
                     .map(p => ({ id: p.id, username: p.username }))
                 : [],
             necromancerTargets: player.role === 'Necromancer'
@@ -842,6 +881,7 @@ function sendGameState(roomCode) {
             allyProtectDisabled: player.role === 'Müttefik' && player.allyProtectDisabled,
             isSick: player.isSick,
             carrierRoleOptions: player.role === CARRIER_ROLE ? player.carrierRoleOptions : [],
+            eziciPatronStage: player.role === EZICI_PATRON_ROLE ? getEziciPatronStage(player) : null,
             mixerTargetId: player.role === MIXER_HAIN_ROLE ? player.mixerTargetId : null,
             sheriffShotsUsed: player.sheriffShotsUsed || 0,
             sheriffLastShotDay: player.sheriffLastShotDay || 0,
@@ -918,6 +958,7 @@ io.on('connection', (socket) => {
             username: username || 'Oyuncu 1', 
             isHost: true, 
             role: null, 
+            eziciPatronStage: 1,
             isAlive: true,
             hasGun: false,
             ammo: 0,
@@ -974,6 +1015,7 @@ io.on('connection', (socket) => {
             username: username || 'Oyuncu', 
             isHost: false, 
             role: null, 
+            eziciPatronStage: 1,
             isAlive: true,
             hasGun: false,
             ammo: 0,
@@ -1052,6 +1094,7 @@ io.on('connection', (socket) => {
 
         room.players.forEach(p => {
             p.role = null;
+            p.eziciPatronStage = 1;
             p.isAlive = true;
             p.hasGun = false;
             p.ammo = 0;
@@ -1139,6 +1182,7 @@ io.on('connection', (socket) => {
         }
 
         room.players.forEach(player => {
+            player.eziciPatronStage = 1;
             player.allyTargetId = null;
             player.allyProtectUses = 0;
             player.allyProtectDisabled = false;
@@ -1316,6 +1360,7 @@ io.on('connection', (socket) => {
 
         actor.role = stolenRole;
         actor.isHain = Boolean(target.isHain);
+        actor.eziciPatronStage = stolenRole === EZICI_PATRON_ROLE ? getEziciPatronStage(target) : 1;
         actor.isCult = Boolean(actor.isCult || target.isCult);
         actor.isCultConverted = Boolean(actor.isCultConverted || target.isCultConverted);
         if (stolenRole === 'Müttefik') {
@@ -1597,6 +1642,9 @@ io.on('connection', (socket) => {
 
         const actor = room.players.find(p => p.id === socket.id);
         if (actor && (actor.isAlive || actor.role === 'Melek' || actor.role === 'Müttefik')) {
+            if (actor.role === EZICI_PATRON_ROLE && getEziciPatronStage(actor) < 2) {
+                return socket.emit('errorMsg', 'Ezici Patron 1. aşamada gece eylemi yapamaz!');
+            }
             if (actor.role === RITUALIST_ROLE) {
                 return socket.emit('errorMsg', 'Ritüelci yalnızca rol tahmini yapabilir!');
             }
@@ -1637,6 +1685,10 @@ io.on('connection', (socket) => {
             if (['Düz Köylü', 'Medyum', 'Casus', 'Başkan', 'Avcı Köylü', 'Şerif'].includes(actor.role)) return;
             if (actor.role === 'Hırsız') return socket.emit('errorMsg', 'Hırsız gece eylemi yapamaz!');
             if (actor.role === EXECUTIONER_ROLE) return;
+            if (actor.role === EZICI_PATRON_ROLE) {
+                const target = room.players.find(player => player.id === targetId && player.isAlive && player.id !== actor.id);
+                if (!target) return socket.emit('errorMsg', 'Başka bir yaşayan oyuncuyu hedeflemelisin!');
+            }
             if (actor.role === 'Necromancer' && !actor.hasGun) {
                 return socket.emit('errorMsg', 'Silahın yoksa Necromancer olarak yalnızca ölü rol gücünü kullanabilirsin!');
             }
@@ -1817,6 +1869,9 @@ io.on('connection', (socket) => {
         const target = room.players.find(p => p.id === targetId && p.isAlive);
         if (!controlled || isHainPlayer(controlled) || controlled.id === actor.id) {
             return socket.emit('errorMsg', 'Bu kişi kontrol edilemez!');
+        }
+        if (controlled.role === EZICI_PATRON_ROLE && getEziciPatronStage(controlled) >= 4) {
+            return socket.emit('errorMsg', '4. aşamadaki Ezici Patron büyüyle kontrol edilemez!');
         }
         if (!canWizardTarget(actor, controlled, target)) return socket.emit('errorMsg', 'Kendin veya kontrol ettiğin kişi hedef olamaz!');
 
@@ -2419,6 +2474,7 @@ function calculateNightResult(roomCode) {
     let allyProtectTarget = null;
     let loverProtectTarget = null;
     let skTarget = null, skActor = null;
+    let eziciTarget = null, eziciActor = null, eziciStage = 1;
     let hainTarget = null, hainActor = null;
     let triggerHainTarget = null, triggerHainActor = null, triggerHainIsGuess = false;
     let lostHainTarget = null, lostHainActor = null;
@@ -2463,7 +2519,9 @@ function calculateNightResult(roomCode) {
         const actor = room.players.find(p => p.id === actorId);
         const effectiveRole = act.controlledBy ? act.role : actor && actor.role;
         if (!actor || !actor.isAlive || !act.targetId || !trapTargets.has(act.targetId)) return;
+        const effectiveEziciStage = effectiveRole === EZICI_PATRON_ROLE ? getEziciPatronStage(actor) : 1;
         if (!['Seri Katil', 'Kundakçı', LOST_HAIN_ROLE].includes(effectiveRole) &&
+            !(effectiveRole === EZICI_PATRON_ROLE && effectiveEziciStage >= 3) &&
             !roleHasAutomaticShield(effectiveRole) && !hasAutomaticShield(actor) &&
             effectiveRole !== 'Tuzakçı Köylü' && !(effectiveRole === 'Ninja Hain' && act.actionType === 'NINJA')) {
             act.blockedByTrap = true;
@@ -2592,6 +2650,12 @@ function calculateNightResult(roomCode) {
             tricksterActor = actor;
         }
         else if (act.controlledBy && act.role === 'Seri Katil') { skTarget = act.targetId; skActor = actor; killPerformerIds.add(actorId); }
+        else if (act.controlledBy && act.role === EZICI_PATRON_ROLE && getEziciPatronStage(actor) >= 2) {
+            eziciTarget = act.targetId;
+            eziciActor = actor;
+            eziciStage = getEziciPatronStage(actor);
+            killPerformerIds.add(actorId);
+        }
         else if (act.controlledBy && (ALL_HAIN_ROLES.includes(act.role) || act.role === HAIN_KOYLU_ROLE)) {
             hainTarget = act.targetId;
             hainActor = actor;
@@ -2630,6 +2694,12 @@ function calculateNightResult(roomCode) {
         }
         else if (actor.role === 'Kahin Köylü') { kahinTarget = act.targetId; kahinActor = actor; }
         else if (actor.role === 'Seri Katil') { skTarget = act.targetId; skActor = actor; killPerformerIds.add(actorId); }
+        else if (actor.role === EZICI_PATRON_ROLE && getEziciPatronStage(actor) >= 2) {
+            eziciTarget = act.targetId;
+            eziciActor = actor;
+            eziciStage = getEziciPatronStage(actor);
+            killPerformerIds.add(actorId);
+        }
         else if (actor.role === LOST_HAIN_ROLE) {
             lostHainTarget = act.targetId;
             lostHainActor = actor;
@@ -2710,13 +2780,15 @@ function calculateNightResult(roomCode) {
             (hainActor && isArmedHain(hainActor) && hainTarget === arsoActor.id) ||
             (vigActor && vigTarget === arsoActor.id))
     );
+    let eziciKillsThisNight = 0;
 
-    function processAttack(attacker, targetId, killerName, effectiveRole = attacker && attacker.role, ignoreProtections = false) {
+    function processAttack(attacker, targetId, killerName, effectiveRole = attacker && attacker.role, ignoreProtections = false, bypassOtherProtections = false) {
         if (!attacker || !attacker.isAlive || !targetId) return;
         const victim = room.players.find(p => p.id === targetId);
         if (!victim || !victim.isAlive) return;
 
-        const canKillShieldedRole = canRoleKillShieldedRole(effectiveRole, attacker.hasGun);
+        const effectiveEziciStage = effectiveRole === EZICI_PATRON_ROLE ? getEziciPatronStage(attacker) : 1;
+        const canKillShieldedRole = canRoleKillShieldedRole(effectiveRole, attacker.hasGun, effectiveEziciStage);
         const targetHasAutomaticShield = hasAutomaticShield(victim);
         if (targetHasAutomaticShield && !canKillShieldedRole) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
@@ -2746,10 +2818,10 @@ function calculateNightResult(roomCode) {
             return;
         }
 
-        let protectedByDoc = !ignoreProtections && (docTarget === targetId);
-        let protectedByAlly = !ignoreProtections && (allyProtectTarget === targetId);
-        let protectedByLover = !ignoreProtections && (loverProtectTarget === targetId);
-        let protectedByJester = !ignoreProtections && (victim.role === 'Jester' && victim.jesterShieldProtected);
+        let protectedByDoc = !ignoreProtections && !bypassOtherProtections && (docTarget === targetId);
+        let protectedByAlly = !ignoreProtections && !bypassOtherProtections && (allyProtectTarget === targetId);
+        let protectedByLover = !ignoreProtections && !bypassOtherProtections && (loverProtectTarget === targetId);
+        let protectedByJester = !ignoreProtections && !bypassOtherProtections && (victim.role === 'Jester' && victim.jesterShieldProtected);
 
         if (protectedByDoc || protectedByAlly || protectedByLover || protectedByJester) {
             io.to(victim.id).emit('systemAnnounce', '[SİSTEM] 🛡️ Sana saldırdılar ama korundun!');
@@ -2768,6 +2840,9 @@ function calculateNightResult(roomCode) {
             victim.roleHidden = hideRole;
             killedList.push({ player: victim, killer: killerName, hiddenRole: hideRole });
             checkGunPass(room, victim);
+            if (effectiveRole === EZICI_PATRON_ROLE && attacker.role === EZICI_PATRON_ROLE) {
+                eziciKillsThisNight++;
+            }
 
             if (killerName === 'Vigilante' && shouldVigilanteDieAfterShot(attacker, victim)) {
                 attacker.isAlive = false;
@@ -2775,6 +2850,44 @@ function calculateNightResult(roomCode) {
                 checkGunPass(room, attacker);
             }
         }
+    }
+
+    function processEziciPatronAttack() {
+        if (!eziciActor || !eziciActor.isAlive || !eziciTarget) return;
+        if (eziciStage < 5) {
+            processAttack(
+                eziciActor,
+                eziciTarget,
+                EZICI_PATRON_ROLE,
+                EZICI_PATRON_ROLE,
+                false,
+                eziciStage >= 4
+            );
+            return;
+        }
+
+        const resident = room.players.find(player => player.id === eziciTarget && player.isAlive);
+        const visitors = Object.entries(actions)
+            .filter(([actorId, action]) =>
+                actorId !== eziciActor.id && action.targetId === eziciTarget && !action.noVisit
+            )
+            .map(([actorId]) => room.players.find(player => player.id === actorId))
+            .filter(player => player && player.isAlive);
+        const victims = [...new Set([resident, ...visitors].filter(Boolean))];
+        victims.forEach(victim => {
+            if (!victim.isAlive) return;
+            victim.isAlive = false;
+            if (victim.role === 'Avcı Köylü') {
+                victim.hunterStand = true;
+                victim.hunterStandUsed = false;
+                room.hunterStand = { playerId: victim.id, expiresAt: 0 };
+            }
+            killedList.push({ player: victim, killer: EZICI_PATRON_ROLE, hiddenRole: false });
+            checkGunPass(room, victim);
+            eziciKillsThisNight++;
+        });
+        const result = `🔥 ${victims.filter(victim => !victim.isAlive).length} kişi hedef evde ezildi.`;
+        emitRoleActionMessage(eziciActor, result);
     }
 
     if (triggerHainActor && triggerHainTarget) {
@@ -2820,7 +2933,9 @@ function calculateNightResult(roomCode) {
         });
     }
 
+    if (eziciStage >= 4) processEziciPatronAttack();
     if (skTarget) processAttack(skActor, skTarget, 'Seri Katil', 'Seri Katil');
+    if (eziciStage === 3) processEziciPatronAttack();
     if (ninjaActor && ninjaActor.isAlive && ninjaTarget) {
         const ninjaVictims = Object.entries(actions)
             .filter(([actorId, act]) => actorId !== ninjaActor.id && act.targetId === ninjaTarget && !act.noVisit)
@@ -2838,6 +2953,7 @@ function calculateNightResult(roomCode) {
     }
     if (hainActor && hainTarget) processAttack(hainActor, hainTarget, actions[hainActor.id]?.role === 'Gizleyici' ? 'Gizleyici' : 'Hainler', actions[hainActor.id]?.role || hainActor.role);
     if (lostHainActor && lostHainTarget) processAttack(lostHainActor, lostHainTarget, LOST_HAIN_ROLE, LOST_HAIN_ROLE);
+    if (eziciStage === 2) processEziciPatronAttack();
     if (cultActor && cultTarget && cultActionType === 'CULT_ATTACK') {
         processAttack(cultActor, cultTarget, 'Tarikat', 'Tarikat');
         io.to(cultActor.id).emit('chatMessage', {
@@ -2939,7 +3055,14 @@ function calculateNightResult(roomCode) {
         const visitors = Object.entries(actions)
             .filter(([aId, act]) => act.targetId === gozcuTarget && !act.noVisit && aId !== gozcuActor.id)
             .map(([aId]) => room.players.find(p => p.id === aId))
-            .filter(p => p && !NEUTRAL_ROLES.includes(getActionRole(p.id, actions[p.id])) && getActionRole(p.id, actions[p.id]) !== 'Seri Katil' && !(getActionRole(p.id, actions[p.id]) === LOST_HAIN_ROLE && gozcuTarget === actions[p.id]?.targetId))
+            .filter(p => {
+                if (!p) return false;
+                const role = getActionRole(p.id, actions[p.id]);
+                const visibleNeutralEzici = role === EZICI_PATRON_ROLE && getEziciPatronStage(p) < 3;
+                return (!NEUTRAL_ROLES.includes(role) || visibleNeutralEzici) &&
+                    role !== 'Seri Katil' &&
+                    !(role === LOST_HAIN_ROLE && gozcuTarget === actions[p.id]?.targetId);
+            })
             .map(p => p.username);
 
         const targetP = room.players.find(p => p.id === gozcuTarget);
@@ -3017,6 +3140,19 @@ function calculateNightResult(roomCode) {
 
     spreadSickness(room);
     prepareCarrierTransformation(room);
+    const survivingEzici = room.players.find(player => player.isAlive && player.role === EZICI_PATRON_ROLE);
+    if (survivingEzici) {
+        const oldStage = getEziciPatronStage(survivingEzici);
+        const playerCount = room.startingPlayerCount || room.players.length;
+        advanceEziciPatronAfterNight(survivingEzici, playerCount, eziciKillsThisNight);
+        if (survivingEzici.eziciPatronStage !== oldStage) {
+            io.to(survivingEzici.id).emit('chatMessage', {
+                sender: '[EZİCİ PATRON]',
+                text: `Ezici Patron ${survivingEzici.eziciPatronStage}. aşamaya ulaştı.`,
+                type: 'green'
+            });
+        }
+    }
 }
 
 function checkGunPass(room, deadPlayer) {
@@ -3083,7 +3219,7 @@ function getAdditionalWinners(room, alivePlayers) {
 function withAdditionalWinners(result, room, alivePlayers) {
     const additionalWinners = getAdditionalWinners(room, alivePlayers);
     const winnerNames = [result.winner];
-    const loversBlockedByWinner = ['KUNDAKÇI', 'SERİ KATİL', 'JESTER'].some(winner => result.winner.includes(winner));
+    const loversBlockedByWinner = ['KUNDAKÇI', 'SERİ KATİL', 'EZİCİ PATRON', 'JESTER'].some(winner => result.winner.includes(winner));
     if (additionalWinners.loversWon && !loversBlockedByWinner && !winnerNames.includes('AŞIKLAR')) winnerNames.push('AŞIKLAR');
     if (additionalWinners.allyWon && !winnerNames.includes('MÜTTEFİK')) winnerNames.push('MÜTTEFİK');
 
@@ -3103,7 +3239,7 @@ function getLoverVictoryResult(room, alivePlayers) {
     const loverPair = room.loverPair || [];
     const aliveLovers = loverPair.filter(playerId => alivePlayers.some(player => player.id === playerId));
     if (aliveLovers.length !== 2 || alivePlayers.length > 3) return null;
-    if (alivePlayers.some(player => ['Kundakçı', 'Seri Katil', 'Jester'].includes(player.role))) return null;
+    if (alivePlayers.some(player => ['Kundakçı', 'Seri Katil', EZICI_PATRON_ROLE, 'Jester'].includes(player.role))) return null;
 
     const hasLivingCult = alivePlayers.some(isCultPlayer);
     const hasLivingHain = alivePlayers.some(player => !isCultPlayer(player) && isHainPlayer(player));
@@ -3135,11 +3271,12 @@ function checkWinCondition(roomCode) {
     const aliveHainTeam = alivePlayers.filter(isCountedHain);
     const aliveSK = alivePlayers.filter(p => p.role === 'Seri Katil');
     const aliveKundakci = alivePlayers.filter(p => p.role === 'Kundakçı');
+    const aliveEziciPatron = alivePlayers.filter(p => p.role === EZICI_PATRON_ROLE);
     const aliveCult = alivePlayers.filter(isCultPlayer);
     const aliveBaskan = alivePlayers.filter(p => p.role === 'Başkan');
 
     const townLeaderBlocksEvilWin = aliveBaskan.length > 0 || hasSheriffVictoryBlock(room);
-    const aliveEvils = [...aliveHain, ...aliveHainKoylu, ...aliveLostHain, ...aliveSK, ...aliveKundakci, ...aliveCult];
+    const aliveEvils = [...aliveHain, ...aliveHainKoylu, ...aliveLostHain, ...aliveSK, ...aliveKundakci, ...aliveEziciPatron, ...aliveCult];
 
     if (aliveLostHain.length === 1 && alivePlayers.length === 1) {
         clearInterval(room.timer);
@@ -3174,6 +3311,16 @@ function checkWinCondition(roomCode) {
         return true;
     }
 
+    if (aliveEziciPatron.length === 1 && alivePlayers.length === 1) {
+        clearInterval(room.timer);
+        sendGameState(roomCode);
+        emitGameOver(roomCode, withAdditionalWinners({
+            winner: 'EZİCİ PATRON',
+            msg: `💥 ${aliveEziciPatron[0].username} tek başına hayatta kaldı ve Ezici Patron olarak kazandı!`
+        }, room, alivePlayers));
+        return true;
+    }
+
     if (hasCultVictory(room, alivePlayers)) {
         clearInterval(room.timer);
         sendGameState(roomCode);
@@ -3190,7 +3337,7 @@ function checkWinCondition(roomCode) {
     }
 
     // 3. Kundakçı Zaferi
-    if (aliveKundakci.length > 0 && aliveLostHain.length === 0 && aliveHain.length === 0 && aliveSK.length === 0 && aliveCult.length === 0 && alivePlayers.length <= 2) {
+    if (aliveKundakci.length > 0 && aliveLostHain.length === 0 && aliveHain.length === 0 && aliveSK.length === 0 && aliveEziciPatron.length === 0 && aliveCult.length === 0 && alivePlayers.length <= 2) {
         clearInterval(room.timer);
         sendGameState(roomCode);
         emitGameOver(roomCode, { winner: 'KUNDAKÇI', msg: '🔥 Kundakçı köyü küle çevirdi ve tek başına kazandı!' });
@@ -3198,7 +3345,7 @@ function checkWinCondition(roomCode) {
     }
 
     // 4. Seri Katil Zaferi
-    if (aliveSK.length > 0 && aliveLostHain.length === 0 && aliveHain.length === 0 && aliveKundakci.length === 0 && aliveCult.length === 0) {
+    if (aliveSK.length > 0 && aliveLostHain.length === 0 && aliveHain.length === 0 && aliveKundakci.length === 0 && aliveEziciPatron.length === 0 && aliveCult.length === 0) {
         const othersCount = alivePlayers.length - aliveSK.length;
         if (aliveSK.length >= othersCount && !townLeaderBlocksEvilWin) {
             clearInterval(room.timer);
@@ -3210,7 +3357,7 @@ function checkWinCondition(roomCode) {
 
     // 5. Hainler Zaferi
     const allHainCount = aliveHain.length + aliveHainKoylu.length;
-    if (allHainCount > 0 && aliveSK.length === 0 && aliveKundakci.length === 0 && aliveCult.length === 0) {
+    if (allHainCount > 0 && aliveSK.length === 0 && aliveKundakci.length === 0 && aliveEziciPatron.length === 0 && aliveCult.length === 0) {
         if (hasHainMajority(allHainCount, alivePlayers.length) && !townLeaderBlocksEvilWin && !(aliveHainKoylu.length === 1 && aliveHainTeam.length === 1)) {
             clearInterval(room.timer);
             sendGameState(roomCode);
@@ -3249,6 +3396,9 @@ module.exports = {
     buildRandomRolePool,
     pickRandomRoleSet,
     canRoleUseAttack,
+    getEziciPatronStage,
+    advanceEziciPatronStage,
+    advanceEziciPatronAfterNight,
     canHunterSpeakPublicly,
     DETECTIVE_CATEGORIES,
     getDetectiveAnswer,

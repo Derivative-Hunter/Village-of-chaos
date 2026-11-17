@@ -718,7 +718,7 @@
             <div class="role-category neutral">
                 <h5>⚖️ Tarafsız · Silahlı Tarafsızlar</h5>
                 <div class="setting-grid">
-                    <div class="setting-item"><label>Rol sayısı (Kundakçı / Seri Katil):</label><input type="number" id="cfg-silahli-tarafsiz" value="0" min="0" max="2" onchange="emitSettings()"></div>
+                    <div class="setting-item"><label>Rol sayısı (Kundakçı / Seri Katil / Ezici Patron):</label><input type="number" id="cfg-silahli-tarafsiz" value="0" min="0" max="3" onchange="emitSettings()"></div>
                 </div>
             </div>
             <div class="role-category neutral">
@@ -795,6 +795,7 @@
                 <div class="setting-item"><label>Duyucu Hain</label><input type="number" id="cfg-role-duyucu" data-role="Duyucu Hain" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Kundakçı</label><input type="number" id="cfg-role-kundakci" data-role="Kundakçı" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Seri Katil</label><input type="number" id="cfg-role-seri-katil" data-role="Seri Katil" value="0" min="0" max="5" onchange="emitSettings()"></div>
+                <div class="setting-item"><label>Ezici Patron</label><input type="number" id="cfg-role-ezici-patron" data-role="Ezici Patron" value="0" min="0" max="1" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Jester</label><input type="number" id="cfg-role-jester" data-role="Jester" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Hırsız</label><input type="number" id="cfg-role-hirsiz" data-role="Hırsız" value="0" min="0" max="5" onchange="emitSettings()"></div>
                 <div class="setting-item"><label>Müttefik</label><input type="number" id="cfg-role-muttefik" data-role="Müttefik" value="0" min="0" max="5" onchange="emitSettings()"></div>
@@ -1067,6 +1068,7 @@
         <div class="role-list-item neutral"><strong>🎭 Jester:</strong> Gündüz oylamasıyla idam edilirse kendi özel zaferini kazanır.</div>
         <div class="role-list-item neutral"><strong>🔪 Seri Katil:</strong> Her gece bir oyuncuya saldırır ve diğer tehditler yokken çoğunluğa ulaşarak kazanmaya çalışır. Silahlı Hain ile karşılıklı saldırıda önceliği vardır.</div>
         <div class="role-list-item neutral"><strong>🔥 Kundakçı:</strong> Geceleri bir oyuncuyu gizlice yağlar; yağlanan evleri ve o evlere gidenleri ateşe verir. Yağlarken gelen Seri Katil veya Gizleyici saldırısı Kundakçıyı öldürür; Kundakçı yakıyorsa karşılıklı saldırıda hayatta kalır ve Gizleyici veya Seri Katil ölür.</div>
+        <div class="role-list-item neutral"><strong>💥 Ezici Patron:</strong> 1. aşamada eylem yapamaz ve ilk tur sonunda 2. aşamaya geçer. 10’dan az oyuncuda her tur, 10 veya daha fazla oyuncuda öldürdükçe gelişir; en fazla 5. aşamaya ulaşır. 2. aşamada Düz Hain gibi saldırır. 3. aşamada Seri Katil gibi saldırır, Gözcü tarafından görülmez ve otomatik kalkanları aşar. 4. aşamada otomatik kalkan kazanır, tüm korumaları ve iyileştirmeleri aşar, Düzenbaz ile Büyücü Hain'den etkilenmez ve Kundakçı saldırma önceliğini alır. 5. aşamada seçtiği evin sakini ve ziyaretçileri ölür. Tek başına kaldığında kazanır.</div>
         <div class="role-list-item neutral"><strong>🎭 Hırsız:</strong> Gündüz yaşayan bir oyuncuyu öldürür ve onun rolünü çalar.</div>
         <div class="role-list-item neutral"><strong>🤝 Müttefik:</strong> İlk gece bir oyuncu seçer; seçim yapmazsa rastgele bir oyuncu belirlenir. Seçtiği kişiyi ilk gece dahil toplam iki kez saldırılardan korur. Öldükten sonra da yalnızca seçtiği kişiyi koruyabilir; kendisini koruyamaz. Rolü Hırsız tarafından alınırsa koruma yapamaz. Müttefiki oyun sonunda hayattaysa kendisi de kazanır.</div>
         <div class="role-list-item neutral"><strong>🦠 Taşıyıcı (Hastalıklı):</strong> Oyuna hastalıklı başlar. Gece ziyaret ettiği ve kendisini ziyaret eden oyunculara hastalık bulaştırır. Tüm yaşayan oyuncular hastalandığında kalkan kazanır ve yalnızca hayattaysa gündüz oyunda olmayan bir role dönüşebilir. Dönüştüğü rol otomatik kalkanlı değilse kalkanını kaybeder.</div>
@@ -1295,7 +1297,7 @@
         badge.innerText = role;
         if (isHain || (role && ['Gizleyici', 'Düz Hain', 'Suikastçi', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Duyucu Hain', 'Ninja Hain', 'Kayıp Hain'].includes(role))) {
             badge.className = 'role-pill Hain';
-        } else if (['Seri Katil', 'Jester', 'Hırsız', 'Kundakçı', 'Müttefik', 'Taşıyıcı (Hastalıklı)', 'Ritüelci', 'Cellat'].includes(role)) {
+        } else if (['Seri Katil', 'Ezici Patron', 'Jester', 'Hırsız', 'Kundakçı', 'Müttefik', 'Taşıyıcı (Hastalıklı)', 'Ritüelci', 'Cellat'].includes(role)) {
             badge.className = 'role-pill Neutral';
         } else {
             badge.className = 'role-pill Town';
@@ -1317,7 +1319,7 @@
         loadNotes();
     });
 
-    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, astralTargets, phase, timeLeft, dayNumber, defendantId, hasGun, hasCultGun, cultActionMode, isCultMember, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, triggerHainTargetRole, executionerTargetName, executionerTargetDead, spyListenUses, spyListenChoiceMade, ritualistRoleOptions, ritualistCorrectGuesses, ritualistRequiredGuesses, ritualistGuessedPlayerIds, ritualistGuessMade, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions, mixerTargetId, sheriffShotsUsed, sheriffLastShotDay }) => {
+    socket.on('gameStateUpdate', ({ players, wizardTargets, necromancerTargets, astralTargets, phase, timeLeft, dayNumber, defendantId, hasGun, hasCultGun, cultActionMode, isCultMember, jesterShield, isRevealed, hasStolen, hasAssassinated, isHain, triggerHainTargetRole, executionerTargetName, executionerTargetDead, eziciPatronStage, spyListenUses, spyListenChoiceMade, ritualistRoleOptions, ritualistCorrectGuesses, ritualistRequiredGuesses, ritualistGuessedPlayerIds, ritualistGuessMade, hunterStand, ninjaUsed, isLover, loverPartnerId, loverProtectUsed, allyTargetId, allyProtectUses, allyProtectDisabled, carrierRoleOptions, mixerTargetId, sheriffShotsUsed, sheriffLastShotDay }) => {
         players.forEach(player => {
             if (myRole === 'Gölge Ajanı' && player.shadowRole) knownShadowRoles[player.id] = player.shadowRole;
         });
@@ -1325,6 +1327,9 @@
             ...player,
             shadowRole: myRole === 'Gölge Ajanı' ? (knownShadowRoles[player.id] || null) : null
         }));
+        if (myRole === 'Ezici Patron' && eziciPatronStage) {
+            document.getElementById('my-role-badge').innerText = `${myRole} · ${eziciPatronStage}. Aşama`;
+        }
         const triggerHainTargetNotice = document.getElementById('trigger-hain-target');
         if (myRole === 'Tetikçi Hain' && !hasGun) {
             triggerHainTargetNotice.innerText = triggerHainTargetRole
@@ -1335,6 +1340,16 @@
             triggerHainTargetNotice.innerText = executionerTargetDead
                 ? `Cellat hedefin ${executionerTargetName || 'öldü'}. Şimdi Jester gibi kendini astırmaya çalış!`
                 : `Cellat hedefin: ${executionerTargetName || 'Belirlenemedi'}. Onu gündüz astır!`;
+            triggerHainTargetNotice.classList.remove('hidden');
+        } else if (myRole === 'Ezici Patron') {
+            const stageMessage = {
+                1: 'Henüz yeteneğin yok; ilk tur sonunda 2. aşamaya geçeceksin.',
+                2: 'Düz Hain gibi saldırırsın.',
+                3: 'Seri Katil gibi saldırırsın; Gözcü seni göremez ve otomatik kalkanları aşarsın.',
+                4: 'Otomatik kalkanın var; saldırın tüm korumaları ve iyileştirmeleri aşar.',
+                5: 'Seçtiğin evin sakini ve ziyaretçileri ölür; daha fazla gelişemezsin.'
+            }[eziciPatronStage] || '';
+            triggerHainTargetNotice.innerText = `Ezici Patron · ${eziciPatronStage}. Aşama/5. ${stageMessage}`;
             triggerHainTargetNotice.classList.remove('hidden');
         } else {
             triggerHainTargetNotice.classList.add('hidden');
@@ -1500,8 +1515,9 @@
                     } else if (phase === 'NIGHT') {
                         const canUseAttack = ((roleName) => {
                             if (!roleName) return false;
-                            const attackRoleSet = new Set(['Seri Katil', 'Gizleyici', 'Düz Hain', 'Karıştırıcı Hain', 'Duyucu Hain', 'Tetikçi Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain', 'Kayıp Hain', 'Gölge Ajanı', 'Temizlikçi Hain', 'Susturucu', 'Necromancer', 'Büyücü Hain']);
+                            const attackRoleSet = new Set(['Seri Katil', 'Ezici Patron', 'Gizleyici', 'Düz Hain', 'Karıştırıcı Hain', 'Duyucu Hain', 'Tetikçi Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain', 'Kayıp Hain', 'Gölge Ajanı', 'Temizlikçi Hain', 'Susturucu', 'Necromancer', 'Büyücü Hain']);
                             if (!attackRoleSet.has(roleName)) return false;
+                            if (roleName === 'Ezici Patron') return Number(eziciPatronStage) >= 2;
                             if (['Duyucu Hain', 'Tetikçi Hain', 'Gölge Ajanı', 'Temizlikçi Hain', 'Susturucu', 'Necromancer', 'Büyücü Hain'].includes(roleName)) return Boolean(hasGun);
                             if (['Gizleyici', 'Düz Hain', 'Karıştırıcı Hain', 'Suikastçi', 'Ninja Hain', 'Kayıp Hain'].includes(roleName)) return Boolean(hasGun) || roleName === 'Suikastçi' || roleName === 'Kayıp Hain';
                             return true;
@@ -1516,7 +1532,7 @@
                             let btnLabel = '🎯 Eylem';
                             if (myRole === 'Doktor' || myRole === 'Melek') btnLabel = isMe ? '🛡️ Kendini Koru' : '🎯 Koru';
                             else if (myRole === 'Müttefik') btnLabel = dayNumber === 1 ? '🤝 Müttefikini Seç' : '🛡️ Müttefikini Koru';
-                            else if (['Seri Katil', 'Gizleyici', 'Düz Hain', 'Karıştırıcı Hain', 'Duyucu Hain', 'Tetikçi Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain', 'Kayıp Hain'].includes(myRole) || (['Necromancer', 'Büyücü Hain'].includes(myRole) && hasGun)) btnLabel = '🎯 Saldır';
+                            else if (['Seri Katil', 'Ezici Patron', 'Gizleyici', 'Düz Hain', 'Karıştırıcı Hain', 'Duyucu Hain', 'Tetikçi Hain', 'Suikastçi', 'Vigilante', 'Ninja Hain', 'Kayıp Hain'].includes(myRole) || (['Necromancer', 'Büyücü Hain'].includes(myRole) && hasGun)) btnLabel = '🎯 Saldır';
                             else if (myRole === 'Gölge Ajanı') btnLabel = hasGun ? '🎯 Saldır' : '🌑 Rolünü Öğren';
                             else if (myRole === 'Temizlikçi Hain') btnLabel = hasGun ? '🎯 Saldır' : '🧹 Temizle';
                             else if (myRole === 'Kahin Köylü') btnLabel = '🔮 İncele';
@@ -1568,7 +1584,7 @@
                                     actionBtnHtml = '';
                                 } else if (myRole === 'Müttefik' && !amIAlive && p.id === socket.id) {
                                     actionBtnHtml = '';
-                                } else if (canUseAttack || !['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Düz Hain', 'Karıştırıcı Hain', 'Astral'].includes(myRole)) {
+                                } else if (canUseAttack || !['Duyucu Hain', 'Gölge Ajanı', 'Susturucu', 'Necromancer', 'Büyücü Hain', 'Düz Hain', 'Karıştırıcı Hain', 'Astral', 'Ezici Patron'].includes(myRole)) {
                                     const allyActionType = myRole === 'Müttefik' ? ', \'ALLY_PROTECT\'' : '';
                                     actionBtnHtml = `<button class="card-btn btn-action-pink" onclick="handleNightAction('${p.id}'${allyActionType})">${btnLabel}</button>`;
                                 }
